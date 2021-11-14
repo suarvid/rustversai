@@ -47,10 +47,6 @@ impl Board {
         let mut row_number = 0;
         let mut col_number = 0; 
         for i in 0..string_rep.as_bytes().len() {
-            println!(
-                "Length of string representation is: {}",
-                string_rep.as_bytes().len()
-            );
             if string_rep.as_bytes()[i] == '\n' as u8 {
                 row_number += 1;
                 col_number = 0;

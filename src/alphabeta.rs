@@ -3,10 +3,23 @@ use crate::moves::Move;
 use std::time;
 
 
-pub fn
+pub fn find_next_board(input_string: &str) -> Board {
+    assert!(input_string.is_ascii()); // should be reasonable
+    let player = input_string.as_bytes()[0] as char; // first char will be the player
+    let board_string = input_string.chars().skip(1).collect::<String>();
+    let board = Board::read(&board_string[..]); // takes a &str, not a String
+    match alphabeta_move_gen(&board, player) {
+        Some(m) => {
+            match Move::make_move(&board, &Some(m)) {
+                Some(b) => return b,
+                None => panic!("No move found for board and player!")
+            }
+        }
+        None => panic!("No move found for board and player!") //TODO: this is probably due to not taking diagonals into account
+    }
+}
 
 // TODO: figure out if this should allow negative values
-// TODO: 
 pub fn evaluate_board(board: &Board, player: char) -> f32 {
     let mut heuristic_value = 0.0;
     for elem in &board.cells {
@@ -93,7 +106,6 @@ fn vec_differs(fst: &Vec<char>, snd: &Vec<char>) -> (bool, isize, char) {
 
 
 pub fn alphabeta_move_gen(board: &Board, player: char) -> Option<Move> {
-    let mut depth = 1;
     let start_time = time::Instant::now();
     let possible_moves = Move::gen_valid_moves(board, player);
     // max = 'w' wants to maximize, min = 'b' wants to minimize
@@ -109,7 +121,6 @@ pub fn alphabeta_move_gen(board: &Board, player: char) -> Option<Move> {
                         f32::INFINITY,
                         player,
                         start_time,
-                        &mut depth
                     );
                     if child_value > best_val {
                         best_val = child_value;
@@ -119,7 +130,6 @@ pub fn alphabeta_move_gen(board: &Board, player: char) -> Option<Move> {
                 None => continue,
             }
         }
-        println!("Maximum move depth reached: {}", depth);
         return get_move(&board, &best_child);
     } else {
         let mut best_val = f32::INFINITY;
@@ -133,7 +143,6 @@ pub fn alphabeta_move_gen(board: &Board, player: char) -> Option<Move> {
                         f32::INFINITY,
                         player,
                         start_time,
-                        &mut depth
                     );
                     if child_value < best_val {
                         best_val = child_value;
@@ -143,23 +152,21 @@ pub fn alphabeta_move_gen(board: &Board, player: char) -> Option<Move> {
                 None => continue,
             }
         }
-        println!("Number of nodes expanded: {}", depth); // Depth is not actually depth, just nb of nodes
         return get_move(&board, &best_child);
     }
 }
 
 // if i generate the children of the current board, call alphabeta on them, I can get the move that will be best, probably
-pub fn alphabeta(board: &Board, mut alpha: f32, mut beta: f32, player: char, start_time: time::Instant, depth: &mut u8) -> f32 {
+pub fn alphabeta(board: &Board, mut alpha: f32, mut beta: f32, player: char, start_time: time::Instant) -> f32 {
     if  is_game_over(board, player) || time::Instant::now().duration_since(start_time) > time::Duration::new(1, 0) {
         return evaluate_board(board, player);
     }
 
     let children = generate_children(board, player);
-    *depth += 1;
     if player == 'w' {
         let mut value = f32::NEG_INFINITY;
         for child in children {
-            let child_value = alphabeta(&child, alpha, beta, 'b', start_time, depth);
+            let child_value = alphabeta(&child, alpha, beta, 'b', start_time);
             if child_value > value {
                 value = child_value;
             }
@@ -173,7 +180,7 @@ pub fn alphabeta(board: &Board, mut alpha: f32, mut beta: f32, player: char, sta
     } else {
         let mut value = f32::INFINITY;
         for child in children {
-            let child_value = alphabeta(&child, alpha, beta, 'w', start_time, depth);
+            let child_value = alphabeta(&child, alpha, beta, 'w', start_time);
             if child_value < value {
                 value = child_value;
             }
