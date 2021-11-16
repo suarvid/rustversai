@@ -78,3 +78,39 @@ impl Board {
         Board { cells }
     }
 }
+
+
+// TODO: this should be in board.rs
+// if we're not starting from the bottom row, the rightmost column has to be the actual rightmost column
+// otherwise, no new diagonals are calculated.
+// Returns one diagonal, from top left to bottom right
+pub fn get_diagonal_left_to_right(board: &Board, rightmost_column: isize) -> std::vec::Vec<char> {
+  assert!(rightmost_column >= 0 && rightmost_column < board.cells.len() as isize);
+  let mut elements = Vec::new();
+  let mut row_number: isize = board.cells.len() as isize - 1;
+  let mut col_number = rightmost_column;
+
+  while row_number >= 0 && col_number < board.cells.len() as isize {
+    elements.push(board.cells[row_number as usize][col_number as usize]);
+    col_number -= 1;
+    row_number -= 1;
+  }
+
+  elements
+}
+
+// leftmost column should start as board_size
+pub fn get_diagonal_right_to_left(board: &Board, leftmost_column: isize) -> std::vec::Vec<char> {
+  assert!(leftmost_column >= 0 && leftmost_column < board.cells.len() as isize);
+  let mut elements = Vec::new();
+  let mut row_number: isize = board.cells.len() as isize - 1;
+  let mut col_number = leftmost_column;
+
+  while col_number >= 0 && row_number >= 0 {
+    elements.push(board.cells[row_number as usize][col_number as usize]);
+    col_number += 1;
+    row_number -= 1;
+  }
+
+  elements
+}
