@@ -1,28 +1,18 @@
-use crate::board::Board;
-use crate::moves::Move;
+use crate::move_generator::{getMoves, get_move_from_board_diff, Move, OthelloPosition};
+use crate::move_generator::{EMPTY_CELL, PLAYER_BLACK, PLAYER_WHITE};
 use std::time;
 
-
-pub fn find_next_board(input_string: &str) -> Board {
-    assert!(input_string.is_ascii()); // should be reasonable
-    let player = input_string.as_bytes()[0] as char; // first char will be the player
-    let board_string = input_string.chars().skip(1).collect::<String>();
-    let board = Board::read(&board_string[..]); // takes a &str, not a String
-    match alphabeta_move_gen(&board, player) {
-        Some(m) => {
-            match Move::make_move(&board, &Some(m)) {
-                Some(b) => return b,
-                None => panic!("No move found for board and player!")
-            }
-        }
-        None => panic!("No move found for board and player!") //TODO: this is probably due to not taking diagonals into account
-    }
-}
+static mut nodes_expanded: u32 = 0;
 
 // TODO: figure out if this should allow negative values
-pub fn evaluate_board(board: &Board, player: char) -> f32 {
+pub fn evaluate_board(board: &OthelloPosition) -> f32 {
     let mut heuristic_value = 0.0;
-    for elem in &board.cells {
+    let mut player = 'X';
+    if board.max_player {
+        player = 'O';
+    }
+
+    for elem in &board.board {
         let player_occurrences = elem
             .iter()
             .map(|x| if *x == player { 1 } else { 0 })
@@ -33,14 +23,14 @@ pub fn evaluate_board(board: &Board, player: char) -> f32 {
     heuristic_value
 }
 
-fn generate_children(board: &Board, player: char) -> Vec<Board> {
-    let possible_moves = Move::gen_valid_moves(board, player);
+fn generate_children(board: &OthelloPosition) -> Vec<OthelloPosition> {
+    let possible_moves = getMoves(board);
     let mut child_boards = Vec::new();
 
     for p_move in possible_moves {
         match Move::make_move(&board, &Some(p_move)) {
             Some(nb) => child_boards.push(nb),
-            None => continue
+            None => continue,
         }
     }
 
@@ -48,80 +38,23 @@ fn generate_children(board: &Board, player: char) -> Vec<Board> {
 }
 
 // Maybe unnecessary to take a player, but think we always have access to one
-pub fn is_game_over(board: &Board, player: char) -> bool {
-    Move::gen_valid_moves(board, player).len() == 0
+pub fn is_game_over(board: &OthelloPosition) -> bool {
+    unsafe {getMoves(board).len() == 0 || nodes_expanded > 30000} //TODO: Figure out if this is OK or if we need to avoid stack overflow some other way
 }
 
-// Basic minimax without any pruning.
-// Seems to work for depths ~10 for timing < 1 second, at least for initial tests
-pub fn minimax(board: &Board, depth: u8, player: char) -> f32 {
-    if depth == 0 || is_game_over(board, player) {
-        return evaluate_board(board, player);
-    }
-
-    let children = generate_children(board, player);
-
-    if player == 'w' {
-        let mut value = f32::NEG_INFINITY;
-        for child in children {
-            let child_value = minimax(&child, depth - 1, 'b');
-            if child_value > value {
-                value = child_value;
-            }
-        }
-        return value;
-    } else {
-        let mut value = f32::INFINITY;
-        for child in children {
-            let child_value = minimax(&child, depth - 1, 'w');
-            if child_value < value {
-                value = child_value;
-            }
-        }
-        return value;
-    }
-}
-
-fn get_move(from: &Board, to: &Board) -> Option<Move> {
-    for row in (0..from.cells.len()) {
-        let (differs, col, to_value) = vec_differs(&from.cells[row], &to.cells[row]);
-        if differs {
-            return Some(Move::new(to_value, row, col as usize));
-        }
-    }
-
-    None
-}
-
-// Compares two vectors to see if they differ
-fn vec_differs(fst: &Vec<char>, snd: &Vec<char>) -> (bool, isize, char) {
-    for i in (0..fst.len()) {
-        if fst[i] != snd[i] {
-            return (true, i as isize, snd[i]);
-        }
-    }
-
-    (false, -1, 'e')
-}
-
-
-pub fn alphabeta_move_gen(board: &Board, player: char) -> Option<Move> {
+pub fn alphabeta_move_gen(board: &OthelloPosition) -> Option<Move> {
     let start_time = time::Instant::now();
-    let possible_moves = Move::gen_valid_moves(board, player);
+    let possible_moves = getMoves(board);
+    
     // max = 'w' wants to maximize, min = 'b' wants to minimize
-    if player == 'w' {
+    if board.max_player {
         let mut best_val = f32::NEG_INFINITY;
-        let mut best_child = Board::start_board(); // TODO: Make sure this placeholder val is okay, slightly ugly but whatever
+        let mut best_child = OthelloPosition::empty(); // TODO: Make sure this placeholder val is okay, slightly ugly but whatever
         for candidate_move in possible_moves {
             match Move::make_move(board, &Some(candidate_move)) {
                 Some(child) => {
-                    let child_value = alphabeta(
-                        board,
-                       f32::NEG_INFINITY,
-                        f32::INFINITY,
-                        player,
-                        start_time,
-                    );
+                    let child_value =
+                        alphabeta(board, f32::NEG_INFINITY, f32::INFINITY, start_time);
                     if child_value > best_val {
                         best_val = child_value;
                         best_child = child;
@@ -130,20 +63,15 @@ pub fn alphabeta_move_gen(board: &Board, player: char) -> Option<Move> {
                 None => continue,
             }
         }
-        return get_move(&board, &best_child);
+        return get_move_from_board_diff(&board, &best_child);
     } else {
         let mut best_val = f32::INFINITY;
-        let mut best_child = Board::start_board();
+        let mut best_child = OthelloPosition::empty();
         for candidate_move in possible_moves {
             match Move::make_move(board, &Some(candidate_move)) {
                 Some(child) => {
-                    let child_value = alphabeta(
-                        board,
-                       f32::NEG_INFINITY,
-                        f32::INFINITY,
-                        player,
-                        start_time,
-                    );
+                    let child_value =
+                        alphabeta(board, f32::NEG_INFINITY, f32::INFINITY, start_time);
                     if child_value < best_val {
                         best_val = child_value;
                         best_child = child;
@@ -152,21 +80,31 @@ pub fn alphabeta_move_gen(board: &Board, player: char) -> Option<Move> {
                 None => continue,
             }
         }
-        return get_move(&board, &best_child);
+        return get_move_from_board_diff(&board, &best_child);
     }
 }
 
 // if i generate the children of the current board, call alphabeta on them, I can get the move that will be best, probably
-pub fn alphabeta(board: &Board, mut alpha: f32, mut beta: f32, player: char, start_time: time::Instant) -> f32 {
-    if  is_game_over(board, player) || time::Instant::now().duration_since(start_time) > time::Duration::new(1, 0) {
-        return evaluate_board(board, player);
+fn alphabeta(
+    board: &OthelloPosition,
+    mut alpha: f32,
+    mut beta: f32,
+    start_time: time::Instant,
+) -> f32 {
+    if is_game_over(board)
+        || time::Instant::now().duration_since(start_time) > time::Duration::new(10, 0)
+    {
+        return evaluate_board(board);
     }
 
-    let children = generate_children(board, player);
-    if player == 'w' {
+    let children = generate_children(board);
+    if board.max_player {
         let mut value = f32::NEG_INFINITY;
         for child in children {
-            let child_value = alphabeta(&child, alpha, beta, 'b', start_time);
+            unsafe {
+                nodes_expanded += 1;
+            }
+            let child_value = alphabeta(&child, alpha, beta, start_time);
             if child_value > value {
                 value = child_value;
             }
@@ -180,7 +118,10 @@ pub fn alphabeta(board: &Board, mut alpha: f32, mut beta: f32, player: char, sta
     } else {
         let mut value = f32::INFINITY;
         for child in children {
-            let child_value = alphabeta(&child, alpha, beta, 'w', start_time);
+            unsafe {
+                nodes_expanded += 1;
+            }
+            let child_value = alphabeta(&child, alpha, beta, start_time);
             if child_value < value {
                 value = child_value;
             }

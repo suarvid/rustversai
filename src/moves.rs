@@ -1,5 +1,6 @@
-use crate::board::Board;
 use crate::board;
+use crate::board::Board;
+use crate::board::EMPTY_CELL;
 use std::fmt;
 use std::iter;
 
@@ -48,8 +49,27 @@ impl fmt::Display for Move {
   }
 }
 
+pub fn get_move_from_board_diff(from: &Board, to: &Board) -> Option<Move> {
+  for row in 0..from.cells.len() {
+    let (differs, col, to_value) = vec_differs(&from.cells[row], &to.cells[row]);
+    if differs {
+      return Some(Move::new(to_value, row, col as usize));
+    }
+  }
 
+  None
+}
 
+// Compares two vectors to see if they differ
+fn vec_differs(fst: &Vec<char>, snd: &Vec<char>) -> (bool, isize, char) {
+  for i in (0..fst.len()) {
+    if fst[i] != snd[i] {
+      return (true, i as isize, snd[i]);
+    }
+  }
+
+  (false, -1, EMPTY_CELL)
+}
 
 // TODO: Move some stuff into a while-loop to find all moves instead of just some, which is the case now
 fn gen_valid_moves_helper(board: &Board, player: char) -> Vec<Move> {
@@ -69,26 +89,42 @@ fn gen_valid_moves_helper(board: &Board, player: char) -> Vec<Move> {
 }
 
 fn gen_moves_diagonals(board: &Board, player: char) -> std::vec::Vec<Move> {
-
   let mut valid_moves = Vec::new();
 
   for i in (0..=7).rev() {
     let left_to_right_diag = board::get_diagonal_left_to_right(board, i);
-    valid_moves.push(gen_valid_moves_diagonal(left_to_right_diag, true, 7, i as usize, player));
+    valid_moves.push(gen_valid_moves_diagonal(
+      left_to_right_diag,
+      true,
+      7,
+      i as usize,
+      player,
+    ));
   }
 
   for j in (0..=7) {
     let right_to_left_diag = board::get_diagonal_right_to_left(board, j);
-    valid_moves.push(gen_valid_moves_diagonal(right_to_left_diag, false, 7, j as usize, player));
+    valid_moves.push(gen_valid_moves_diagonal(
+      right_to_left_diag,
+      false,
+      7,
+      j as usize,
+      player,
+    ));
   }
 
   valid_moves.concat()
-
 }
 
 // diagonals above the main diagonal make it more complicated
 // generates the valid moves in a given diagonal
-fn gen_valid_moves_diagonal(diagonal: Vec<char>, left_to_right: bool, lowest_row: usize, edge_column: usize, player: char) -> std::vec::Vec<Move> {
+fn gen_valid_moves_diagonal(
+  diagonal: Vec<char>,
+  left_to_right: bool,
+  lowest_row: usize,
+  edge_column: usize,
+  player: char,
+) -> std::vec::Vec<Move> {
   let to_transform = valid_pos_in_row(diagonal, player);
   let mut valid_diag_moves = Vec::new();
 
@@ -104,7 +140,7 @@ fn gen_valid_moves_diagonal(diagonal: Vec<char>, left_to_right: bool, lowest_row
   } else {
     // diag is right-to-left
     // column index should still be correct
-    // 
+    //
     for diag_position in to_transform {
       let col_num = diag_position;
       let row_num = lowest_row - (col_num - edge_column);
@@ -123,7 +159,7 @@ pub fn valid_pos_in_row(row: Vec<char>, player: char) -> std::vec::Vec<usize> {
 
   let mut current_index = 0;
   // first, skip any initial empty slots in the row
-  while current_index < row.len() && row[current_index] == 'e' {
+  while current_index < row.len() && row[current_index] == EMPTY_CELL {
     current_index += 1;
 
     if current_index == row.len() {
@@ -135,7 +171,10 @@ pub fn valid_pos_in_row(row: Vec<char>, player: char) -> std::vec::Vec<usize> {
       let possible_placement = current_index - 1; // Save the empty position as possible return value // Subtract with overflow here
 
       // keep going as long as there are opponent pieces
-      while row[current_index] != player && row[current_index] != 'e' {
+      while current_index < row.len() - 1
+        && row[current_index] != player
+        && row[current_index] != EMPTY_CELL
+      {
         current_index += 1;
       }
 
@@ -145,16 +184,16 @@ pub fn valid_pos_in_row(row: Vec<char>, player: char) -> std::vec::Vec<usize> {
       }
     } else {
       // players own piece found first
-      while current_index < 8 && row[current_index] == player {
+      while current_index < row.len() - 1 && row[current_index] == player {
         current_index += 1;
       }
 
       // first opponent piece found
-      if current_index < 8 && row[current_index] != 'e' {
-        while row[current_index] != 'e' && row[current_index] != player {
+      if current_index < 8 && row[current_index] != EMPTY_CELL {
+        while row[current_index] != EMPTY_CELL && row[current_index] != player {
           current_index += 1;
         }
-        if row[current_index] == 'e' {
+        if row[current_index] == EMPTY_CELL {
           legal_positions.push(current_index); // Found empty after leading player piece and consecutive opponent pieces
         }
       }
