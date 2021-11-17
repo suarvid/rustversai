@@ -4,14 +4,14 @@ pub const EMPTY_CELL: char = 'E';
 pub const BOARD_SIZE: usize = 8;
 //TODO: Somewhere there is a mixup between PLAYER_WHITE and PLAYER_BLACK
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Move {
     player: char,
     pub row: usize,
     pub col: usize,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct OthelloPosition {
     pub board: Vec<Vec<char>>,
     pub max_player: bool,
@@ -25,6 +25,34 @@ impl OthelloPosition {
             board,
             max_player: true,
         }
+    }
+
+    pub fn worst_for_max() -> OthelloPosition {
+        let board = vec![vec![PLAYER_BLACK; 10]; 10];
+        OthelloPosition {
+            board,
+            max_player: true,
+        }
+    }
+
+    pub fn worst_for_min() -> OthelloPosition {
+        let board = vec![vec![PLAYER_WHITE; 10]; 10];
+        OthelloPosition {
+            board,
+            max_player: false,
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        for row in &self.board {
+            for c in row {
+                if *c != EMPTY_CELL {
+                    return true;
+                }
+            }
+        }
+
+        false
     }
 
     pub fn new(string_rep: &str) -> OthelloPosition {
@@ -75,7 +103,7 @@ impl Move {
         to_make: &Option<Move>,
     ) -> Option<OthelloPosition> {
         match to_make {
-            Some(m) => Some(board.add_piece(m.row, m.col, m.player)),
+            Some(m) => Some(board.add_piece(m.row + 1, m.col + 1, m.player)), //TODO: Might have to remove the +1's
             None => None,
         }
     }
