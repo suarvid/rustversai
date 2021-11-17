@@ -38,14 +38,27 @@ fn generate_children(board: &OthelloPosition) -> Vec<OthelloPosition> {
 }
 
 // Maybe unnecessary to take a player, but think we always have access to one
+// TODO: Rewrite this to recognize that the game is over
 pub fn is_game_over(board: &OthelloPosition) -> bool {
-    unsafe {get_moves(board).len() == 0 || nodes_expanded > 100000} //TODO: Figure out if this is OK or if we need to avoid stack overflow some other way
+    let mut filled_board = true;
+    for row in 1..=8 {
+        for col in 1..=8 {
+            if board.board[row][col] == 'E' { // at least one empty space remaining
+                filled_board = false;
+                break;
+            }
+        }
+    }
+    unsafe {filled_board || nodes_expanded > 100000} //TODO: Figure out if this is OK or if we need to avoid stack overflow some other way
 }
 
 pub fn alphabeta_move_gen(board: &OthelloPosition, time_limit: u64) -> Option<Move> {
     let start_time = time::Instant::now();
     let possible_moves = get_moves(board);
-    
+
+    if possible_moves.len() == 0 {
+        return None;
+    }
     // max = 'w' wants to maximize, min = 'b' wants to minimize
     if board.max_player {
         let mut best_val = f32::NEG_INFINITY;
