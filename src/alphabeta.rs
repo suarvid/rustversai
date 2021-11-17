@@ -1,4 +1,4 @@
-use crate::move_generator::{getMoves, get_move_from_board_diff, Move, OthelloPosition};
+use crate::move_generator::{get_moves, get_move_from_board_diff, Move, OthelloPosition};
 use crate::move_generator::{EMPTY_CELL, PLAYER_BLACK, PLAYER_WHITE};
 use std::time;
 
@@ -24,7 +24,7 @@ pub fn evaluate_board(board: &OthelloPosition) -> f32 {
 }
 
 fn generate_children(board: &OthelloPosition) -> Vec<OthelloPosition> {
-    let possible_moves = getMoves(board);
+    let possible_moves = get_moves(board);
     let mut child_boards = Vec::new();
 
     for p_move in possible_moves {
@@ -39,12 +39,12 @@ fn generate_children(board: &OthelloPosition) -> Vec<OthelloPosition> {
 
 // Maybe unnecessary to take a player, but think we always have access to one
 pub fn is_game_over(board: &OthelloPosition) -> bool {
-    unsafe {getMoves(board).len() == 0 || nodes_expanded > 30000} //TODO: Figure out if this is OK or if we need to avoid stack overflow some other way
+    unsafe {get_moves(board).len() == 0 || nodes_expanded > 100000} //TODO: Figure out if this is OK or if we need to avoid stack overflow some other way
 }
 
-pub fn alphabeta_move_gen(board: &OthelloPosition) -> Option<Move> {
+pub fn alphabeta_move_gen(board: &OthelloPosition, time_limit: u64) -> Option<Move> {
     let start_time = time::Instant::now();
-    let possible_moves = getMoves(board);
+    let possible_moves = get_moves(board);
     
     // max = 'w' wants to maximize, min = 'b' wants to minimize
     if board.max_player {
@@ -54,13 +54,13 @@ pub fn alphabeta_move_gen(board: &OthelloPosition) -> Option<Move> {
             match Move::make_move(board, &Some(candidate_move)) {
                 Some(child) => {
                     let child_value =
-                        alphabeta(board, f32::NEG_INFINITY, f32::INFINITY, start_time);
+                        alphabeta(board, f32::NEG_INFINITY, f32::INFINITY, start_time, time_limit);
                     if child_value > best_val {
                         best_val = child_value;
                         best_child = child;
                     }
                 }
-                None => continue,
+                None => panic!("No board found as result of making candidate move!"),
             }
         }
         return get_move_from_board_diff(&board, &best_child);
@@ -71,13 +71,13 @@ pub fn alphabeta_move_gen(board: &OthelloPosition) -> Option<Move> {
             match Move::make_move(board, &Some(candidate_move)) {
                 Some(child) => {
                     let child_value =
-                        alphabeta(board, f32::NEG_INFINITY, f32::INFINITY, start_time);
+                        alphabeta(board, f32::NEG_INFINITY, f32::INFINITY, start_time, time_limit);
                     if child_value < best_val {
                         best_val = child_value;
                         best_child = child;
                     }
                 }
-                None => continue,
+                None => panic!("No board found as result of making candidate move!"),
             }
         }
         return get_move_from_board_diff(&board, &best_child);
@@ -90,9 +90,10 @@ fn alphabeta(
     mut alpha: f32,
     mut beta: f32,
     start_time: time::Instant,
+    time_limit: u64
 ) -> f32 {
     if is_game_over(board)
-        || time::Instant::now().duration_since(start_time) > time::Duration::new(10, 0)
+        || time::Instant::now().duration_since(start_time) > time::Duration::new(time_limit, 0)
     {
         return evaluate_board(board);
     }
@@ -104,7 +105,7 @@ fn alphabeta(
             unsafe {
                 nodes_expanded += 1;
             }
-            let child_value = alphabeta(&child, alpha, beta, start_time);
+            let child_value = alphabeta(&child, alpha, beta, start_time, time_limit);
             if child_value > value {
                 value = child_value;
             }
@@ -121,7 +122,7 @@ fn alphabeta(
             unsafe {
                 nodes_expanded += 1;
             }
-            let child_value = alphabeta(&child, alpha, beta, start_time);
+            let child_value = alphabeta(&child, alpha, beta, start_time, time_limit);
             if child_value < value {
                 value = child_value;
             }
