@@ -1,7 +1,7 @@
 use crate::move_generator::{get_move_from_board_diff, get_moves, Move, OthelloPosition};
 use crate::move_generator::{EMPTY_CELL, PLAYER_BLACK, PLAYER_WHITE};
 use std::time;
-
+use rand::Rng;
 static mut NODES_EXPANDED: u32 = 0;
 
 // TODO: figure out if this should allow negative values
@@ -11,8 +11,31 @@ static mut NODES_EXPANDED: u32 = 0;
 // Mobility
 // Corners
 // Stability
+// was 14 without corners
 pub fn evaluate_board(board: &OthelloPosition) -> f32 {
-    (coin_parity_value(board) + mobility_value(board) + corners_value(board)) as f32
+    let mut rng = rand::thread_rng();
+    rng.gen_range((-100)..100) as f32
+}
+
+pub fn basic_heuristic(board: &OthelloPosition) -> isize {
+    let mut white_counter = 0;
+    for row in board.board {
+        for c in row {
+            if c == PLAYER_WHITE {
+                white_counter += 1;
+            }
+        }
+    }
+    let mut black_counter = 0;
+    for row in board.board {
+        for c in row {
+            if c == PLAYER_BLACK {
+                black_counter -= 1;
+            }
+        }
+    }
+
+    white_counter - black_counter
 }
 
 fn coin_parity_value(board: &OthelloPosition) -> isize {
@@ -134,59 +157,87 @@ pub fn alphabeta_move_gen(
     start_time: time::Instant,
     time_limit: u64,
 ) -> Option<Move> {
-    let max_depth = 10;
+    let max_depth = 100;
     let mut depth_limit = 1;
     let mut best_move = None;
+    let time_duration = time::Duration::new(time_limit, 0);
     while depth_limit <= max_depth
-        && time::Instant::now().duration_since(start_time) < time::Duration::new(time_limit, 0)
+        && time::Instant::now().duration_since(start_time) < time_duration
     {
         best_move = alphabeta_at_root(board, depth_limit);
         depth_limit += 1;
     }
+    // println!("Max depth reached was: {}", depth_limit);
     best_move
 }
 
 fn alphabeta_at_root(board: &OthelloPosition, depth_limit: u32) -> Option<Move> {
+    // println!("In alpha_beta_at_root");
     // max wants child with max value,
     // min wants child with min value
     let mut to_beat: f32;
     let children = generate_children(board);
+    // println!("Number of children found: {}", children.len());
     if board.max_player {
-        let mut best_child: OthelloPosition = OthelloPosition::worst_for_max();
+        let mut best_child = OthelloPosition::worst_for_max();
         to_beat = f32::NEG_INFINITY;
         if children.len() == 0 {
+            // println!("length of children == 0");
             return None;
         }
         for child in children {
-            
+            // println!("Looking at child:");
+            // child.print();
+            // let move_to_child = get_move_from_board_diff(board, child).unwrap();
+            // println!(
+            // "Looking at move {},{}",
+            // move_to_child.row, move_to_child.col
+            // );
             let child_value = alphabeta(board, depth_limit, f32::NEG_INFINITY, f32::INFINITY);
-            if child_value > to_beat { 
+            if child_value >= to_beat {
                 to_beat = child_value;
                 best_child = child;
+            } else {
+                // println!("{} is not greater than {}", child_value, to_beat);
             }
-
         }
+        // let best_move = get_move_from_board_diff(board, &best_child).unwrap();
+        // println!("best move is: {},{}", best_move.row, best_move.col);
+        // println!("Score of best child was: {}", evaluate_board(&best_child));
         let best_move = get_move_from_board_diff(board, &best_child);
         best_move
     } else {
-        let mut best_child: OthelloPosition = OthelloPosition::worst_for_min();
+        let mut best_child = OthelloPosition::worst_for_min();
         to_beat = f32::INFINITY;
         if children.len() == 0 {
             return None;
         }
         for child in children {
+            // println!("Looking at child:");
+            // child.print();
+            // let move_to_child = get_move_from_board_diff(board, &child).unwrap();
+            // println!(
+            // "Looking at move {},{}",
+            // move_to_child.row, move_to_child.col
+            // );
             let child_value = alphabeta(board, depth_limit, f32::NEG_INFINITY, f32::INFINITY);
-            if child_value < to_beat {
+            if child_value <= to_beat {
                 to_beat = child_value;
                 best_child = child;
+                // println!("Best child is {:?}", best_child);
+            } else {
+                // println!("{} is not less than {}", child_value, to_beat);
             }
         }
-        let best_move = get_move_from_board_diff(board, &best_child);
-        best_move
+        // let best_move = get_move_from_board_diff(board, &best_child).unwrap();
+        // println!("best move is: {},{}", best_move.row, best_move.col);
+        // println!("Score of best child was: {}", evaluate_board(&best_child));
+        get_move_from_board_diff(board, &best_child)
     }
 }
 
 fn alphabeta(board: &OthelloPosition, depth: u32, mut alpha: f32, beta: f32) -> f32 {
+    // println!("In alphabeta");
     if depth == 0 || is_game_over(board) {
         return evaluate_board(board);
     }
@@ -207,6 +258,7 @@ fn alphabeta(board: &OthelloPosition, depth: u32, mut alpha: f32, beta: f32) -> 
                 alpha = value;
             }
         }
+        //println!("Returned value for white's turn: {}", value);
         return value;
     } else {
         value = f32::INFINITY;
@@ -219,6 +271,7 @@ fn alphabeta(board: &OthelloPosition, depth: u32, mut alpha: f32, beta: f32) -> 
                 break; // Alpha cutoff
             }
         }
+        //println!("Returned value for black's turn: {}", value);
         return value;
     }
 }

@@ -11,15 +11,15 @@ pub struct Move {
     pub col: usize,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct OthelloPosition {
-    pub board: Vec<Vec<char>>,
+    pub board: [[char; 10]; 10],
     pub max_player: bool,
 }
 
 impl OthelloPosition {
     pub fn empty() -> OthelloPosition {
-        let board = vec![vec![EMPTY_CELL; 10]; 10];
+        let board = [[EMPTY_CELL; 10]; 10];
 
         OthelloPosition {
             board,
@@ -28,7 +28,7 @@ impl OthelloPosition {
     }
 
     pub fn worst_for_max() -> OthelloPosition {
-        let board = vec![vec![PLAYER_BLACK; 10]; 10];
+        let board = [[PLAYER_BLACK; 10]; 10];
         OthelloPosition {
             board,
             max_player: true,
@@ -36,7 +36,7 @@ impl OthelloPosition {
     }
 
     pub fn worst_for_min() -> OthelloPosition {
-        let board = vec![vec![PLAYER_WHITE; 10]; 10];
+        let board = [[PLAYER_WHITE; 10]; 10];
         OthelloPosition {
             board,
             max_player: false,
@@ -59,7 +59,7 @@ impl OthelloPosition {
         if string_rep.len() != 65 {
             OthelloPosition::empty()
         } else {
-            let mut board = vec![vec![EMPTY_CELL; 10]; 10];
+            let mut board = [[EMPTY_CELL; 10]; 10];
             let mut max_player = false;
             if string_rep.chars().collect::<Vec<char>>()[0] == 'W' {
                 max_player = true;
