@@ -1,6 +1,8 @@
 pub const PLAYER_WHITE: char = 'O';
 pub const PLAYER_BLACK: char = 'X';
 pub const EMPTY_CELL: char = 'E';
+pub const WHITE_STRING_REP: char = 'W';
+pub const BLACK_STRING_REP: char = 'B';
 pub const BOARD_SIZE: usize = 8;
 //TODO: Somewhere there is a mixup between PLAYER_WHITE and PLAYER_BLACK
 
@@ -61,7 +63,7 @@ impl OthelloPosition {
         } else {
             let mut board = [[EMPTY_CELL; 10]; 10];
             let mut max_player = false;
-            if string_rep.chars().collect::<Vec<char>>()[0] == 'W' {
+            if string_rep.chars().collect::<Vec<char>>()[0] == WHITE_STRING_REP {
                 max_player = true;
             }
             for i in 1..=64 {
@@ -72,6 +74,22 @@ impl OthelloPosition {
             }
             OthelloPosition { board, max_player }
         }
+    }
+
+    pub fn string_rep(&self) -> String {
+        let mut player_char = BLACK_STRING_REP;
+        if self.max_player {
+            player_char = WHITE_STRING_REP;
+        }
+        let mut to_return = String::from(player_char);
+        for row in (1..=BOARD_SIZE) {
+            for col in (1..=BOARD_SIZE) {
+                to_return.push_str(&format!("{}",self.board[row][col]));
+            }
+        }    
+
+        to_return
+        
     }
 
     pub fn add_piece(&self, row: usize, col: usize, player: char) -> OthelloPosition {

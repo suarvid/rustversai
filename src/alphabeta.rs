@@ -14,7 +14,7 @@ static mut NODES_EXPANDED: u32 = 0;
 // Stability
 // was 14 without corners
 pub fn evaluate_board(board: &OthelloPosition) -> f32 {
-    coin_parity_value(board) as f32
+    basic_heuristic(board) as f32
 }
 
 pub fn basic_heuristic(board: &OthelloPosition) -> isize {
@@ -167,59 +167,32 @@ pub fn alphabeta_move_gen(
         depth_limit += 1;
     }
     // println!("Max depth reached was: {}", depth_limit);
+    //unsafe {println!("Number of nodes expanded: {}", NODES_EXPANDED); }
     best_move
 }
 
 fn alphabeta_at_root(board: &OthelloPosition, depth_limit: u32) -> Option<Move> {
-    // println!("In alpha_beta_at_root");
     // max wants child with max value,
     // min wants child with min value
     let mut to_beat: f32;
     let children = generate_children(board);
     let mut child_values = Vec::new();
-    // println!("Number of children found: {}", children.len());
     if board.max_player {
         let mut best_child = &OthelloPosition::worst_for_max();
         to_beat = f32::NEG_INFINITY;
         if children.len() == 0 {
-            // println!("length of children == 0");
             return None;
         }
         for child in &children {
-            // println!("Looking at child:");
-            // child.print();
-            // let move_to_child = get_move_from_board_diff(board, child).unwrap();
-            // println!(
-            // "Looking at move {},{}",
-            // move_to_child.row, move_to_child.col
-            // );
+            
             let child_value = alphabeta(board, depth_limit, f32::NEG_INFINITY, f32::INFINITY);
             child_values.push(child_value);
             if child_value >= to_beat {
                 to_beat = child_value;
                 best_child = child;
-            } else {
-                // println!("{} is not greater than {}", child_value, to_beat);
-            }
-        }
-        // let best_move = get_move_from_board_diff(board, &best_child).unwrap();
-        // println!("best move is: {},{}", best_move.row, best_move.col);
-        // println!("Child values at root for player white:");
-        // for value in child_values {
-        //     println!("{}", value);
-        // }
-        // println!("Children at root for player white: ");
-        // for child in &children {
-        //     child.print();
-        //     println!();
-        //     println!("With value: {}", evaluate_board(child));
-        //     println!();
-        // }
-        // println!("Best child is: ");
-        // best_child.print();
-        // println!("Score of best child was: {}", evaluate_board(&best_child));
-        let best_move = get_move_from_board_diff(board, &best_child);
-        best_move
+            } 
+        } 
+        get_move_from_board_diff(board, &best_child)
     } else {
         let mut best_child = &OthelloPosition::worst_for_min();
         to_beat = f32::INFINITY;
@@ -227,45 +200,21 @@ fn alphabeta_at_root(board: &OthelloPosition, depth_limit: u32) -> Option<Move> 
             return None;
         }
         for child in &children {
-            // println!("Looking at child:");
-            // child.print();
-            // let move_to_child = get_move_from_board_diff(board, &child).unwrap();
-            // println!(
-            // "Looking at move {},{}",
-            // move_to_child.row, move_to_child.col
-            // );
-            let child_value = alphabeta(board, depth_limit, f32::INFINITY, f32::NEG_INFINITY); //TODO: Do we need to switch signs if min-player goes first?
+            
+            let child_value = alphabeta(board, depth_limit, f32::NEG_INFINITY, f32::INFINITY); //TODO: Do we need to switch signs if min-player goes first? Does not seem to do anything, at least not play better
             child_values.push(child_value);
             if child_value <= to_beat {
                 to_beat = child_value;
                 best_child = child;
-                // println!("Best child is {:?}", best_child);
-            } else {
-                // println!("{} is not less than {}", child_value, to_beat);
-            }
+            } 
         }
-        // let best_move = get_move_from_board_diff(board, &best_child).unwrap();
-        // println!("best move is: {},{}", best_move.row, best_move.col);
-        // println!("Child values at root for player white:");
-        // for value in child_values {
-        //     println!("{}", value);
-        // }
-        // println!("Children at root for player white: ");
-        // for child in &children {
-        //     child.print();
-        //     println!();
-        //     println!("With value: {}", evaluate_board(&child));
-        //     println!();
-        // }
-        // println!("Best child is: ");
-        // best_child.print();
-        // println!("Score of best child was: {}", evaluate_board(&best_child));
-        let best_move = get_move_from_board_diff(board, &best_child);
-        best_move
+        
+        get_move_from_board_diff(board, &best_child)
     }
 }
 
 fn alphabeta(board: &OthelloPosition, depth: u32, mut alpha: f32, mut beta: f32) -> f32 {
+    unsafe {NODES_EXPANDED += 1;}
     // println!("In alphabeta");
     if depth == 0 || is_game_over(board) {
         return evaluate_board(board);

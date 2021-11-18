@@ -36,6 +36,8 @@ fn main() {
     let pos_string = &args[1];
     let time_limit = (&args[2]).parse::<u64>().unwrap(); //TODO: Implement this, start by assuming time limit = 1s
     let board = OthelloPosition::new(pos_string);
+    println!("string_rep of board:");
+    println!("{}", board.string_rep());
 
     let response = match alphabeta_move_gen(&board, start_time, time_limit) {
         Some(m) => format!("({},{})", m.row, m.col),
