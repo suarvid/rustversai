@@ -1,7 +1,8 @@
 use crate::move_generator::{get_move_from_board_diff, get_moves, Move, OthelloPosition};
 use crate::move_generator::{EMPTY_CELL, PLAYER_BLACK, PLAYER_WHITE};
-use std::time;
 use rand::Rng;
+use std::time;
+extern crate crossbeam;
 static mut NODES_EXPANDED: u32 = 0;
 
 // TODO: figure out if this should allow negative values
@@ -13,8 +14,7 @@ static mut NODES_EXPANDED: u32 = 0;
 // Stability
 // was 14 without corners
 pub fn evaluate_board(board: &OthelloPosition) -> f32 {
-    let mut rng = rand::thread_rng();
-    rng.gen_range((-100)..100) as f32
+    coin_parity_value(board) as f32
 }
 
 pub fn basic_heuristic(board: &OthelloPosition) -> isize {
@@ -139,17 +139,16 @@ pub fn generate_children(board: &OthelloPosition) -> Vec<OthelloPosition> {
 // Maybe unnecessary to take a player, but think we always have access to one
 // TODO: Rewrite this to recognize that the game is over
 pub fn is_game_over(board: &OthelloPosition) -> bool {
-    let mut filled_board = true;
     for row in 1..=8 {
         for col in 1..=8 {
             if board.board[row][col] == 'E' {
                 // at least one empty space remaining
-                filled_board = false;
-                break;
+                return false;
             }
         }
     }
-    unsafe { filled_board || NODES_EXPANDED > 100000 } //TODO: Figure out if this is OK or if we need to avoid stack overflow some other way
+
+    true
 }
 
 pub fn alphabeta_move_gen(
@@ -177,15 +176,16 @@ fn alphabeta_at_root(board: &OthelloPosition, depth_limit: u32) -> Option<Move> 
     // min wants child with min value
     let mut to_beat: f32;
     let children = generate_children(board);
+    let mut child_values = Vec::new();
     // println!("Number of children found: {}", children.len());
     if board.max_player {
-        let mut best_child = OthelloPosition::worst_for_max();
+        let mut best_child = &OthelloPosition::worst_for_max();
         to_beat = f32::NEG_INFINITY;
         if children.len() == 0 {
             // println!("length of children == 0");
             return None;
         }
-        for child in children {
+        for child in &children {
             // println!("Looking at child:");
             // child.print();
             // let move_to_child = get_move_from_board_diff(board, child).unwrap();
@@ -194,6 +194,7 @@ fn alphabeta_at_root(board: &OthelloPosition, depth_limit: u32) -> Option<Move> 
             // move_to_child.row, move_to_child.col
             // );
             let child_value = alphabeta(board, depth_limit, f32::NEG_INFINITY, f32::INFINITY);
+            child_values.push(child_value);
             if child_value >= to_beat {
                 to_beat = child_value;
                 best_child = child;
@@ -203,16 +204,29 @@ fn alphabeta_at_root(board: &OthelloPosition, depth_limit: u32) -> Option<Move> 
         }
         // let best_move = get_move_from_board_diff(board, &best_child).unwrap();
         // println!("best move is: {},{}", best_move.row, best_move.col);
+        // println!("Child values at root for player white:");
+        // for value in child_values {
+        //     println!("{}", value);
+        // }
+        // println!("Children at root for player white: ");
+        // for child in &children {
+        //     child.print();
+        //     println!();
+        //     println!("With value: {}", evaluate_board(child));
+        //     println!();
+        // }
+        // println!("Best child is: ");
+        // best_child.print();
         // println!("Score of best child was: {}", evaluate_board(&best_child));
         let best_move = get_move_from_board_diff(board, &best_child);
         best_move
     } else {
-        let mut best_child = OthelloPosition::worst_for_min();
+        let mut best_child = &OthelloPosition::worst_for_min();
         to_beat = f32::INFINITY;
         if children.len() == 0 {
             return None;
         }
-        for child in children {
+        for child in &children {
             // println!("Looking at child:");
             // child.print();
             // let move_to_child = get_move_from_board_diff(board, &child).unwrap();
@@ -220,7 +234,8 @@ fn alphabeta_at_root(board: &OthelloPosition, depth_limit: u32) -> Option<Move> 
             // "Looking at move {},{}",
             // move_to_child.row, move_to_child.col
             // );
-            let child_value = alphabeta(board, depth_limit, f32::NEG_INFINITY, f32::INFINITY);
+            let child_value = alphabeta(board, depth_limit, f32::INFINITY, f32::NEG_INFINITY); //TODO: Do we need to switch signs if min-player goes first?
+            child_values.push(child_value);
             if child_value <= to_beat {
                 to_beat = child_value;
                 best_child = child;
@@ -231,47 +246,70 @@ fn alphabeta_at_root(board: &OthelloPosition, depth_limit: u32) -> Option<Move> 
         }
         // let best_move = get_move_from_board_diff(board, &best_child).unwrap();
         // println!("best move is: {},{}", best_move.row, best_move.col);
+        // println!("Child values at root for player white:");
+        // for value in child_values {
+        //     println!("{}", value);
+        // }
+        // println!("Children at root for player white: ");
+        // for child in &children {
+        //     child.print();
+        //     println!();
+        //     println!("With value: {}", evaluate_board(&child));
+        //     println!();
+        // }
+        // println!("Best child is: ");
+        // best_child.print();
         // println!("Score of best child was: {}", evaluate_board(&best_child));
-        get_move_from_board_diff(board, &best_child)
+        let best_move = get_move_from_board_diff(board, &best_child);
+        best_move
     }
 }
 
-fn alphabeta(board: &OthelloPosition, depth: u32, mut alpha: f32, beta: f32) -> f32 {
+fn alphabeta(board: &OthelloPosition, depth: u32, mut alpha: f32, mut beta: f32) -> f32 {
     // println!("In alphabeta");
     if depth == 0 || is_game_over(board) {
         return evaluate_board(board);
     }
-    let mut value: f32;
+
     if board.max_player {
-        value = f32::NEG_INFINITY;
-        for child in generate_children(board) {
-            let child_value = alphabeta(&child, depth - 1, alpha, beta);
-            if child_value > value {
-                // value = max(value, child_value)
-                value = child_value;
+        crossbeam::scope(|s| {
+            let mut value: f32;
+            value = f32::NEG_INFINITY;
+            for child in generate_children(board) {
+                let thread = s.spawn(move |_| alphabeta(&child, depth - 1, alpha, beta));
+                let child_value = thread.join().unwrap();
+                if child_value >= value {
+                    value = child_value;
+                }
+                if value >= beta {
+                    break;
+                }
+                if value >= alpha {
+                    alpha = value;
+                }
             }
-            if value >= beta {
-                break; // Beta cutoff
-            }
-            if value > alpha {
-                // alpha = max(alpha, value)
-                alpha = value;
-            }
-        }
-        //println!("Returned value for white's turn: {}", value);
-        return value;
+            value
+        }).unwrap()
+        
     } else {
-        value = f32::INFINITY;
-        for child in generate_children(board) {
-            let child_value = alphabeta(&child, depth - 1, alpha, beta);
-            if child_value < value {
-                value = child_value;
+        crossbeam::scope(|s| {
+            let mut value: f32;
+            value = f32::INFINITY;
+            for child in generate_children(board) {
+                let thread = s.spawn(move |_| alphabeta(&child, depth - 1, alpha, beta));
+                let child_value = thread.join().unwrap();
+                if child_value <= value {
+                    value = child_value;
+                }
+                if value <= alpha {
+                    break;
+                }
+                if value <= beta {
+                    beta = value;
+                }
             }
-            if value <= alpha {
-                break; // Alpha cutoff
-            }
-        }
-        //println!("Returned value for black's turn: {}", value);
-        return value;
+            value
+        }).unwrap()
+        
     }
 }
