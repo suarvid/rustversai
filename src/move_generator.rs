@@ -45,6 +45,32 @@ impl OthelloPosition {
         }
     }
 
+    pub fn num_white_corners(&self) -> usize {
+        self.count_corners(PLAYER_WHITE)
+    }
+
+    pub fn num_black_corners(&self) -> usize {
+        self.count_corners(PLAYER_BLACK)
+    }
+
+    fn count_corners(&self, to_count: char) -> usize {
+        let mut count = 0;
+        if self.board[1][8] == to_count {
+            count += 1;
+        }
+        if self.board[8][1] == to_count {
+            count += 1;
+        }
+        if self.board[1][1] == to_count {
+            count += 1;
+        }
+        if self.board[1][1] == to_count {
+            count += 1;
+        }
+
+        count
+    }
+
     pub fn has_empty_slot(&self) -> bool {
         for row in &self.board {
             for c in row {

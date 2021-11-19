@@ -20,7 +20,8 @@ fn main() {
 
     child.join().unwrap();
 }*/
-// TODO: BOOOOOOOOOOOOOOOOOOOOOOOOOOOXOOOOOOOOOOOOOXOOOOOOOXOOOOOOOXEEEOOO returns (0,0) instantly, figure out why!
+// TODO: Same moves are always made, even with different evaluation functions
+// TODO: Look over the alpha-beta algorithm step by step, read Anton's comment in the discussion about passing a copy etc.
 fn main() {
 
    /*  let worst_white = move_generator::OthelloPosition::worst_for_max();
@@ -41,19 +42,19 @@ fn main() {
     // TODO: DOES NOT SEEM TO MATTER WHAT I DO, THE OTHER AI ALWAYS WINS WITH THE SAME AMOUNT OF POINTS 
     // IF WE PLAY AS BLACK, WHITE ALWAYS WINS WITH 4 POINTS
     // IF WE PLAY AS WHITE, BLACK ALWAYS WINS WITH 24 POINTS, I.E. THE SAME MOVES ALWAYS SEEM TO BE SELECTED!
-    /* println!("Evaluated value of board:");
-    println!("{}", evaluate_board(&board)); */
+    /*println!("Evaluated value of board:");
+    println!("{}", evaluate_board(&board));*/
     //TODO: Try alpha-beta on single boards to see what the resulting value is
-    let response = match alphabeta_at_root(&board, 9) {
+    /* let response = match alphabeta_at_root(&board, 16) {
         Some(m) => format!("({},{})", m.row, m.col),
         None => String::from("pass")
     };
-    print!("{}", response);
-    /* let response = match alphabeta_move_gen(&board, start_time, time_limit) {
+    print!("{}", response); */
+    let response = match alphabeta_move_gen(&board, start_time, time_limit) {
         Some(m) => format!("({},{})", m.row, m.col),
         None => String::from("pass")
     };
 
-    print!("{}", response); */
+    print!("{}", response);
    
 }
