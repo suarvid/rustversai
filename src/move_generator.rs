@@ -45,7 +45,7 @@ impl OthelloPosition {
         }
     }
 
-    pub fn is_empty(&self) -> bool {
+    pub fn has_empty_slot(&self) -> bool {
         for row in &self.board {
             for c in row {
                 if *c != EMPTY_CELL {
@@ -55,6 +55,30 @@ impl OthelloPosition {
         }
 
         false
+    }
+
+    pub fn is_full(&self) -> bool {
+       self.num_black_pieces() + self.num_white_pieces() == 64 
+    }
+
+    pub fn count_pieces(&self, to_count: char) -> usize {
+        let mut count = 0;
+        for row in &self.board {
+            for c in row {
+                if *c == to_count {
+                    count += 1;
+                }
+            }
+        }
+        count
+    }
+
+    pub fn num_white_pieces(&self) -> usize {
+        self.count_pieces(PLAYER_WHITE)
+    }
+
+    pub fn num_black_pieces(&self) -> usize {
+        self.count_pieces(PLAYER_BLACK)
     }
 
     pub fn new(string_rep: &str) -> OthelloPosition {
@@ -118,12 +142,9 @@ impl Move {
 
     pub fn make_move<'a>(
         board: &OthelloPosition,
-        to_make: &Option<Move>,
-    ) -> Option<OthelloPosition> {
-        match to_make {
-            Some(m) => Some(board.add_piece(m.row + 1, m.col + 1, m.player)), //TODO: Might have to remove the +1's
-            None => None,
-        }
+        to_make: &Move,
+    ) -> OthelloPosition {
+            board.add_piece(to_make.row + 1, to_make.col + 1, to_make.player) //TODO: Might have to remove the +1's
     }
 }
 
