@@ -2,8 +2,6 @@ use crate::move_generator::{get_move_from_board_diff, get_moves, Move, OthelloPo
 use crate::move_generator::{EMPTY_CELL, PLAYER_BLACK, PLAYER_WHITE};
 use std::time;
 extern crate crossbeam;
-static mut NODES_EXPANDED: u32 = 0;
-static mut PRUNE_COUNT: u32 = 0;
 pub const VERY_HIGH: isize = 9999999999999;
 pub const VERY_LOW: isize = -VERY_HIGH;
 
@@ -28,7 +26,7 @@ pub fn evaluate_board(board: &OthelloPosition) -> isize {
     }
 
     // Should potential_mobility > immediate_mobility, or vice versa?
-     (600 * corners_value(board)) + (20 * giving_away_corners(board)) + (100 * potential_mobility(board)) + (200 * immediate_mobility(board))
+     (1000 * corners_value(board))  + (200 * immediate_mobility(board)) + (20 * giving_away_corners(board)) + (100 * potential_mobility(board))
 }
 
 pub fn is_win_black(board: &OthelloPosition) -> bool {
@@ -357,20 +355,19 @@ pub fn alphabeta_move_gen(
     let mut best_move = None;
     let time_duration = time::Duration::new(time_limit, 0);
     while depth_limit <= max_depth
-        && time::Instant::now().duration_since(start_time) < time_duration
+        && time::Instant::now().duration_since(start_time) < time_duration //TODO: Remove this when running for real
     {
         best_move = alphabeta_at_root(board, depth_limit);
         depth_limit += 1;
     }
     //println!("Max depth reached was: {}", depth_limit);
-    // unsafe {
-    // println!("Number of nodes expanded: {}", NODES_EXPANDED);
-    // println!("Number of prunes made: {}", PRUNE_COUNT);
-    // }
 
     best_move
 }
 
+// 4 unique children are generated, given the starting string
+// Values are always negative when playing as white, always positive when playing as black
+// Though that might be because the other player gets to move first when considering child nodes (sort of)
 pub fn alphabeta_at_root(board: &OthelloPosition, depth_limit: u32) -> Option<Move> {
     // max wants child with max value,
     // min wants child with min value
@@ -383,19 +380,15 @@ pub fn alphabeta_at_root(board: &OthelloPosition, depth_limit: u32) -> Option<Mo
                 return None;
             }
             for child in &children {
-                let thread = s.spawn(move |_| alphabeta(board, depth_limit, VERY_LOW, VERY_HIGH));
-                //let child_value = thread.join().unwrap(); // When debugging: every child has exactly the same value each pass
-                let child_value = alphabeta(board, depth_limit, VERY_LOW, VERY_HIGH);
+                let thread = s.spawn(move |_| alphabeta(child, depth_limit, VERY_LOW, VERY_HIGH));
+                let child_value = thread.join().unwrap(); // When debugging: every child has exactly the same value each pass
+        //        let child_value = alphabeta(child, depth_limit, VERY_LOW, VERY_HIGH);
                 if child_value >= to_beat {
                     to_beat = child_value;
                     best_child = child;
                 }
             }
-            /* unsafe {
-                println!("Number of boards inspected: {}", NODES_EXPANDED);
-            } */
 
-            // println!("Best value found for white is: {}", evaluate_board(best_child));
             get_move_from_board_diff(board, &best_child)
         })
         .unwrap()
@@ -407,17 +400,14 @@ pub fn alphabeta_at_root(board: &OthelloPosition, depth_limit: u32) -> Option<Mo
                 return None;
             }
             for child in &children {
-                let thread = s.spawn(move |_| alphabeta(board, depth_limit, VERY_LOW, VERY_HIGH));
+                let thread = s.spawn(move |_| alphabeta(child, depth_limit, VERY_LOW, VERY_HIGH));
                 let child_value = thread.join().unwrap();
-                let child_value = alphabeta(board, depth_limit, VERY_LOW, VERY_HIGH);
+         //       let child_value = alphabeta(child, depth_limit, VERY_LOW, VERY_HIGH);
                 if child_value <= to_beat {
                     to_beat = child_value;
                     best_child = child;
                 }
             }
-            /* unsafe {
-                println!("Number of boards inspected: {}", NODES_EXPANDED);
-            } */
             // println!("Best value found for black is: {}", evaluate_board(best_child));
             get_move_from_board_diff(board, &best_child)
         })
@@ -426,9 +416,6 @@ pub fn alphabeta_at_root(board: &OthelloPosition, depth_limit: u32) -> Option<Mo
 }
 
 pub fn alphabeta(board: &OthelloPosition, depth: u32, mut alpha: isize, mut beta: isize) -> isize {
-    unsafe {
-        NODES_EXPANDED += 1;
-    }
 
     if depth == 0 || is_game_over(board) {
         let value = evaluate_board(board);
@@ -444,10 +431,7 @@ pub fn alphabeta(board: &OthelloPosition, depth: u32, mut alpha: isize, mut beta
                 value = child_value;
             }
             if value >= beta {
-                unsafe {
-                    PRUNE_COUNT += 1;
-                }
-                break;
+                continue; //Does this still count as pruning? We don't win if we call break instead
             }
             if value >= alpha {
                 alpha = value;
@@ -464,10 +448,7 @@ pub fn alphabeta(board: &OthelloPosition, depth: u32, mut alpha: isize, mut beta
                 value = child_value;
             }
             if value <= alpha {
-                unsafe {
-                    PRUNE_COUNT += 1;
-                }
-                break;
+                continue; //If we call break, we lose
             }
             if value <= beta {
                 beta = value;
