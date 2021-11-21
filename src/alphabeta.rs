@@ -1,6 +1,6 @@
 use crate::move_generator::{get_move_from_board_diff, get_moves, Move, OthelloPosition};
 use crate::move_generator::{EMPTY_CELL, PLAYER_BLACK, PLAYER_WHITE};
-use std::time;
+use std::time::{Duration, Instant};
 extern crate crossbeam;
 pub const VERY_HIGH: isize = 9999999999999;
 pub const VERY_LOW: isize = -VERY_HIGH;
@@ -25,8 +25,11 @@ pub fn evaluate_board(board: &OthelloPosition) -> isize {
         return VERY_HIGH;
     }
 
-    // Should potential_mobility > immediate_mobility, or vice versa?
-     (1000 * corners_value(board))  + (200 * immediate_mobility(board)) + (20 * giving_away_corners(board)) + (100 * potential_mobility(board))
+    (-50 * coin_parity_value(board))
+        + (1500 * corners_value(board))
+        + (400 * immediate_mobility(board))
+        + (600 * potential_mobility(board))
+        + (10 * giving_away_corners(board)) //TODO: Maybe remove this one, or elaborate upon it so that it only counts if we don't have the corner
 }
 
 pub fn is_win_black(board: &OthelloPosition) -> bool {
@@ -68,187 +71,328 @@ fn coin_parity_value(board: &OthelloPosition) -> isize {
 }
 
 fn giving_away_corners(board: &OthelloPosition) -> isize {
-    let mut value = 0;
+    let mut white_value = 0;
+    let mut black_value = 0;
     match board.board[2][2] {
-        PLAYER_WHITE => value -= 1,
-        PLAYER_BLACK => value += 1,
+        PLAYER_WHITE => white_value += 1,
+        PLAYER_BLACK => black_value += 1,
         _ => (),
     };
     match board.board[2][7] {
-        PLAYER_WHITE => value -= 1,
-        PLAYER_BLACK => value += 1,
+        PLAYER_WHITE => white_value += 1,
+        PLAYER_BLACK => black_value += 1,
         _ => (),
     };
     match board.board[7][2] {
-        PLAYER_WHITE => value -= 1,
-        PLAYER_BLACK => value += 1,
+        PLAYER_WHITE => white_value += 1,
+        PLAYER_BLACK => black_value += 1,
         _ => (),
     }
     match board.board[7][7] {
-        PLAYER_WHITE => value -= 1,
-        PLAYER_BLACK => value += 1,
+        PLAYER_WHITE => white_value += 1,
+        PLAYER_BLACK => black_value += 1,
         _ => (),
     }
     match board.board[2][1] {
-        PLAYER_WHITE => value -= 1,
-        PLAYER_BLACK => value += 1,
+        PLAYER_WHITE => white_value += 1,
+        PLAYER_BLACK => black_value += 1,
         _ => (),
     }
     match board.board[1][2] {
-        PLAYER_WHITE => value -= 1,
-        PLAYER_BLACK => value += 1,
+        PLAYER_WHITE => white_value += 1,
+        PLAYER_BLACK => black_value += 1,
         _ => (),
     }
     match board.board[1][7] {
-        PLAYER_WHITE => value -= 1,
-        PLAYER_BLACK => value += 1,
+        PLAYER_WHITE => white_value += 1,
+        PLAYER_BLACK => black_value += 1,
         _ => (),
     }
     match board.board[2][8] {
-        PLAYER_WHITE => value -= 1,
-        PLAYER_BLACK => value += 1,
+        PLAYER_WHITE => white_value += 1,
+        PLAYER_BLACK => black_value += 1,
         _ => (),
     }
     match board.board[7][1] {
-        PLAYER_WHITE => value -= 1,
-        PLAYER_BLACK => value += 1,
+        PLAYER_WHITE => white_value += 1,
+        PLAYER_BLACK => black_value += 1,
         _ => (),
     }
     match board.board[7][8] {
-        PLAYER_WHITE => value -= 1,
-        PLAYER_BLACK => value += 1,
+        PLAYER_WHITE => white_value += 1,
+        PLAYER_BLACK => black_value += 1,
         _ => (),
     }
     match board.board[8][2] {
-        PLAYER_WHITE => value -= 1,
-        PLAYER_BLACK => value += 1,
+        PLAYER_WHITE => white_value += 1,
+        PLAYER_BLACK => black_value += 1,
         _ => (),
     }
     match board.board[8][7] {
-        PLAYER_WHITE => value -= 1,
-        PLAYER_BLACK => value += 1,
+        PLAYER_WHITE => white_value += 1,
+        PLAYER_BLACK => black_value += 1,
         _ => (),
     }
-    value
+    if white_value + black_value != 0 {
+        return -(100 * (white_value - black_value) / (white_value + black_value));
+    }
+
+    0
 }
 // This is a behemoth of a function
 // TODO: Extract this into smaller functions
 fn potential_mobility(board: &OthelloPosition) -> isize {
     let mut white_count = 0;
     let mut black_count = 0;
-        for row in 1..=8 {
-            for col in 1..=8 {
-                if board.board[row][col] == PLAYER_BLACK {
-                    let above = board.board[row - 1][col];
-                    let below = board.board[row - 1][col];
-                    let right = board.board[row][col + 1];
-                    let left = board.board[row][col - 1];
-                    let top_right = board.board[row - 1][col + 1];
-                    let top_left = board.board[row - 1][col - 1];
-                    let bot_right = board.board[row + 1][col + 1];
-                    let bot_left = board.board[row + 1][col - 1];
-                    if row == 1 { // Can't look up
-                        if col == 1 { // Can't look left
-                            if right == EMPTY_CELL { white_count+= 1};
-                            if below == EMPTY_CELL { white_count += 1};
-                            if bot_right == EMPTY_CELL { white_count += 1};
-                        } else if col == 8 { // Can't look right
-                            if left == EMPTY_CELL {white_count += 1};
-                            if below == EMPTY_CELL {white_count += 1};
-                            if bot_left == EMPTY_CELL {white_count += 1};
-                        } else {
-                            if left == EMPTY_CELL {white_count += 1};
-                            if right == EMPTY_CELL {white_count += 1};
-                            if bot_left == EMPTY_CELL {white_count += 1};
-                            if below == EMPTY_CELL {white_count += 1};
-                            if bot_right == EMPTY_CELL {white_count += 1};
-                        }
-                    } else if row == 8 { // Can't look down
-                        if col == 1 { // Can't look left
-                            if above == EMPTY_CELL {white_count += 1};
-                            if top_right == EMPTY_CELL {white_count += 1};
-                            if right == EMPTY_CELL {white_count += 1};
-                        } else if col == 8 { // Can't look right
-                            if above == EMPTY_CELL {white_count += 1};
-                            if top_left == EMPTY_CELL {white_count += 1};
-                            if left == EMPTY_CELL {white_count += 1};
-                        } else {
-                            if top_left == EMPTY_CELL {white_count += 1};
-                            if top_right == EMPTY_CELL {white_count += 1};
-                            if left == EMPTY_CELL {white_count += 1};
-                            if right == EMPTY_CELL {white_count += 1};
-                        }
-                    } else { // Can look both up and down
-                        if above == EMPTY_CELL {white_count += 1};
-                        if below == EMPTY_CELL {white_count += 1};
-                        if col == 1 { // Cannot look left
-                            if top_right == EMPTY_CELL {white_count += 1};
-                            if right == EMPTY_CELL {white_count += 1};
-                            if bot_right == EMPTY_CELL {white_count += 1};
-                        } else if col == 8 { // Cannot look right
-                            if top_left == EMPTY_CELL {white_count+= 1};
-                            if left == EMPTY_CELL {white_count+= 1};
-                            if bot_left == EMPTY_CELL {white_count+= 1};
-                        }
+    for row in 1..=8 {
+        for col in 1..=8 {
+            if board.board[row][col] == PLAYER_BLACK {
+                let above = board.board[row - 1][col];
+                let below = board.board[row - 1][col];
+                let right = board.board[row][col + 1];
+                let left = board.board[row][col - 1];
+                let top_right = board.board[row - 1][col + 1];
+                let top_left = board.board[row - 1][col - 1];
+                let bot_right = board.board[row + 1][col + 1];
+                let bot_left = board.board[row + 1][col - 1];
+                if row == 1 {
+                    // Can't look up
+                    if col == 1 {
+                        // Can't look left
+                        if right == EMPTY_CELL {
+                            white_count += 1
+                        };
+                        if below == EMPTY_CELL {
+                            white_count += 1
+                        };
+                        if bot_right == EMPTY_CELL {
+                            white_count += 1
+                        };
+                    } else if col == 8 {
+                        // Can't look right
+                        if left == EMPTY_CELL {
+                            white_count += 1
+                        };
+                        if below == EMPTY_CELL {
+                            white_count += 1
+                        };
+                        if bot_left == EMPTY_CELL {
+                            white_count += 1
+                        };
+                    } else {
+                        if left == EMPTY_CELL {
+                            white_count += 1
+                        };
+                        if right == EMPTY_CELL {
+                            white_count += 1
+                        };
+                        if bot_left == EMPTY_CELL {
+                            white_count += 1
+                        };
+                        if below == EMPTY_CELL {
+                            white_count += 1
+                        };
+                        if bot_right == EMPTY_CELL {
+                            white_count += 1
+                        };
                     }
-                } else if board.board[row][col] == PLAYER_WHITE {
-                    let above = board.board[row - 1][col];
-                    let below = board.board[row - 1][col];
-                    let right = board.board[row][col + 1];
-                    let left = board.board[row][col - 1];
-                    let top_right = board.board[row - 1][col + 1];
-                    let top_left = board.board[row - 1][col - 1];
-                    let bot_right = board.board[row + 1][col + 1];
-                    let bot_left = board.board[row + 1][col - 1];
-                    if row == 1 { // Can't look up
-                        if col == 1 { // Can't look left
-                            if right == EMPTY_CELL { black_count += 1};
-                            if below == EMPTY_CELL { black_count += 1};
-                            if bot_right == EMPTY_CELL { black_count += 1};
-                        } else if col == 8 { // Can't look right
-                            if left == EMPTY_CELL {black_count += 1};
-                            if below == EMPTY_CELL {black_count += 1};
-                            if bot_left == EMPTY_CELL {black_count += 1};
-                        } else {
-                            if left == EMPTY_CELL {black_count += 1};
-                            if right == EMPTY_CELL {black_count += 1};
-                            if bot_left == EMPTY_CELL {black_count += 1};
-                            if below == EMPTY_CELL {black_count += 1};
-                            if bot_right == EMPTY_CELL {black_count += 1};
-                        }
-                    } else if row == 8 { // Can't look down
-                        if col == 1 { // Can't look left
-                            if above == EMPTY_CELL {black_count += 1};
-                            if top_right == EMPTY_CELL {black_count += 1};
-                            if right == EMPTY_CELL {black_count += 1};
-                        } else if col == 8 { // Can't look right
-                            if above == EMPTY_CELL {black_count += 1};
-                            if top_left == EMPTY_CELL {black_count += 1};
-                            if left == EMPTY_CELL {black_count += 1};
-                        } else {
-                            if top_left == EMPTY_CELL {black_count += 1};
-                            if top_right == EMPTY_CELL {black_count += 1};
-                            if left == EMPTY_CELL {black_count += 1};
-                            if right == EMPTY_CELL {black_count += 1};
-                        }
-                    } else { // Can look both up and down
-                        if above == EMPTY_CELL {black_count += 1};
-                        if below == EMPTY_CELL {black_count += 1};
-                        if col == 1 { // Cannot look left
-                            if top_right == EMPTY_CELL {black_count += 1};
-                            if right == EMPTY_CELL {black_count += 1};
-                            if bot_right == EMPTY_CELL {black_count += 1};
-                        } else if col == 8 { // Cannot look right
-                            if top_left == EMPTY_CELL {black_count += 1};
-                            if left == EMPTY_CELL {black_count += 1};
-                            if bot_left == EMPTY_CELL {black_count += 1};
-                        }
+                } else if row == 8 {
+                    // Can't look down
+                    if col == 1 {
+                        // Can't look left
+                        if above == EMPTY_CELL {
+                            white_count += 1
+                        };
+                        if top_right == EMPTY_CELL {
+                            white_count += 1
+                        };
+                        if right == EMPTY_CELL {
+                            white_count += 1
+                        };
+                    } else if col == 8 {
+                        // Can't look right
+                        if above == EMPTY_CELL {
+                            white_count += 1
+                        };
+                        if top_left == EMPTY_CELL {
+                            white_count += 1
+                        };
+                        if left == EMPTY_CELL {
+                            white_count += 1
+                        };
+                    } else {
+                        if top_left == EMPTY_CELL {
+                            white_count += 1
+                        };
+                        if top_right == EMPTY_CELL {
+                            white_count += 1
+                        };
+                        if left == EMPTY_CELL {
+                            white_count += 1
+                        };
+                        if right == EMPTY_CELL {
+                            white_count += 1
+                        };
+                    }
+                } else {
+                    // Can look both up and down
+                    if above == EMPTY_CELL {
+                        white_count += 1
+                    };
+                    if below == EMPTY_CELL {
+                        white_count += 1
+                    };
+                    if col == 1 {
+                        // Cannot look left
+                        if top_right == EMPTY_CELL {
+                            white_count += 1
+                        };
+                        if right == EMPTY_CELL {
+                            white_count += 1
+                        };
+                        if bot_right == EMPTY_CELL {
+                            white_count += 1
+                        };
+                    } else if col == 8 {
+                        // Cannot look right
+                        if top_left == EMPTY_CELL {
+                            white_count += 1
+                        };
+                        if left == EMPTY_CELL {
+                            white_count += 1
+                        };
+                        if bot_left == EMPTY_CELL {
+                            white_count += 1
+                        };
+                    }
+                }
+            } else if board.board[row][col] == PLAYER_WHITE {
+                let above = board.board[row - 1][col];
+                let below = board.board[row - 1][col];
+                let right = board.board[row][col + 1];
+                let left = board.board[row][col - 1];
+                let top_right = board.board[row - 1][col + 1];
+                let top_left = board.board[row - 1][col - 1];
+                let bot_right = board.board[row + 1][col + 1];
+                let bot_left = board.board[row + 1][col - 1];
+                if row == 1 {
+                    // Can't look up
+                    if col == 1 {
+                        // Can't look left
+                        if right == EMPTY_CELL {
+                            black_count += 1
+                        };
+                        if below == EMPTY_CELL {
+                            black_count += 1
+                        };
+                        if bot_right == EMPTY_CELL {
+                            black_count += 1
+                        };
+                    } else if col == 8 {
+                        // Can't look right
+                        if left == EMPTY_CELL {
+                            black_count += 1
+                        };
+                        if below == EMPTY_CELL {
+                            black_count += 1
+                        };
+                        if bot_left == EMPTY_CELL {
+                            black_count += 1
+                        };
+                    } else {
+                        if left == EMPTY_CELL {
+                            black_count += 1
+                        };
+                        if right == EMPTY_CELL {
+                            black_count += 1
+                        };
+                        if bot_left == EMPTY_CELL {
+                            black_count += 1
+                        };
+                        if below == EMPTY_CELL {
+                            black_count += 1
+                        };
+                        if bot_right == EMPTY_CELL {
+                            black_count += 1
+                        };
+                    }
+                } else if row == 8 {
+                    // Can't look down
+                    if col == 1 {
+                        // Can't look left
+                        if above == EMPTY_CELL {
+                            black_count += 1
+                        };
+                        if top_right == EMPTY_CELL {
+                            black_count += 1
+                        };
+                        if right == EMPTY_CELL {
+                            black_count += 1
+                        };
+                    } else if col == 8 {
+                        // Can't look right
+                        if above == EMPTY_CELL {
+                            black_count += 1
+                        };
+                        if top_left == EMPTY_CELL {
+                            black_count += 1
+                        };
+                        if left == EMPTY_CELL {
+                            black_count += 1
+                        };
+                    } else {
+                        if top_left == EMPTY_CELL {
+                            black_count += 1
+                        };
+                        if top_right == EMPTY_CELL {
+                            black_count += 1
+                        };
+                        if left == EMPTY_CELL {
+                            black_count += 1
+                        };
+                        if right == EMPTY_CELL {
+                            black_count += 1
+                        };
+                    }
+                } else {
+                    // Can look both up and down
+                    if above == EMPTY_CELL {
+                        black_count += 1
+                    };
+                    if below == EMPTY_CELL {
+                        black_count += 1
+                    };
+                    if col == 1 {
+                        // Cannot look left
+                        if top_right == EMPTY_CELL {
+                            black_count += 1
+                        };
+                        if right == EMPTY_CELL {
+                            black_count += 1
+                        };
+                        if bot_right == EMPTY_CELL {
+                            black_count += 1
+                        };
+                    } else if col == 8 {
+                        // Cannot look right
+                        if top_left == EMPTY_CELL {
+                            black_count += 1
+                        };
+                        if left == EMPTY_CELL {
+                            black_count += 1
+                        };
+                        if bot_left == EMPTY_CELL {
+                            black_count += 1
+                        };
                     }
                 }
             }
         }
-
-    white_count - black_count
+    }
+    if white_count + black_count != 0 {
+        return 100 * (white_count - black_count) / (white_count + black_count);
+    }
+    0
 }
 
 fn immediate_mobility(board: &OthelloPosition) -> isize {
@@ -257,7 +401,7 @@ fn immediate_mobility(board: &OthelloPosition) -> isize {
     if board.max_player {
         // Need to create a min board
         let min_board = OthelloPosition {
-            board: board.board.clone(),
+            board: board.board, //TODO: Maybe we need clone here?
             max_player: false,
         }; //Cloning might be a bit expensive
         let max_board = board;
@@ -266,7 +410,7 @@ fn immediate_mobility(board: &OthelloPosition) -> isize {
     } else {
         // Need to create a max board
         let max_board = OthelloPosition {
-            board: board.board.clone(),
+            board: board.board, //TODO: Maybe need clone here
             max_player: true,
         };
         let min_board = board;
@@ -347,77 +491,92 @@ pub fn is_game_over(board: &OthelloPosition) -> bool {
 
 pub fn alphabeta_move_gen(
     board: &OthelloPosition,
-    start_time: time::Instant,
+    start_time: Instant,
     time_limit: u64,
 ) -> Option<Move> {
     let max_depth = 110;
     let mut depth_limit = 1;
     let mut best_move = None;
-    let time_duration = time::Duration::new(time_limit, 0);
     while depth_limit <= max_depth
-        && time::Instant::now().duration_since(start_time) < time_duration //TODO: Remove this when running for real
+        && Instant::now().duration_since(start_time) < Duration::new(time_limit, 0)
     {
-        best_move = alphabeta_at_root(board, depth_limit);
+        best_move = alphabeta_at_root(board, depth_limit, start_time, time_limit);
         depth_limit += 1;
     }
-    //println!("Max depth reached was: {}", depth_limit);
-
+    // println!("Highest depth limit reached was: {}", depth_limit);
     best_move
 }
 
 // 4 unique children are generated, given the starting string
 // Values are always negative when playing as white, always positive when playing as black
 // Though that might be because the other player gets to move first when considering child nodes (sort of)
-pub fn alphabeta_at_root(board: &OthelloPosition, depth_limit: u32) -> Option<Move> {
+pub fn alphabeta_at_root(
+    board: &OthelloPosition,
+    depth_limit: u32,
+    start_time: Instant,
+    time_limit: u64,
+) -> Option<Move> {
     // max wants child with max value,
     // min wants child with min value
     let children = generate_children(board);
     if board.max_player {
-        crossbeam::scope(|s| {
-            let mut best_child = &OthelloPosition::worst_for_max(); //this should be replaced by any child
-            let mut to_beat = VERY_LOW; // basically negative infinity as an integer
-            if children.len() == 0 {
-                return None;
+        let mut best_child = &OthelloPosition::worst_for_max(); //this should be replaced by any child
+        let mut to_beat = VERY_LOW; // basically negative infinity as an integer
+        if children.len() == 0 {
+            return None;
+        }
+        for child in &children {
+            let child_value = alphabeta(
+                child,
+                depth_limit,
+                VERY_LOW,
+                VERY_HIGH,
+                start_time,
+                time_limit,
+            );
+            if child_value >= to_beat {
+                to_beat = child_value;
+                best_child = child;
             }
-            for child in &children {
-                let thread = s.spawn(move |_| alphabeta(child, depth_limit, VERY_LOW, VERY_HIGH));
-                let child_value = thread.join().unwrap(); // When debugging: every child has exactly the same value each pass
-        //        let child_value = alphabeta(child, depth_limit, VERY_LOW, VERY_HIGH);
-                if child_value >= to_beat {
-                    to_beat = child_value;
-                    best_child = child;
-                }
-            }
+        }
 
-            get_move_from_board_diff(board, &best_child)
-        })
-        .unwrap()
+        get_move_from_board_diff(board, &best_child)
     } else {
-        crossbeam::scope(|s| {
-            let mut best_child = &OthelloPosition::worst_for_min();
-            let mut to_beat = VERY_HIGH;
-            if children.len() == 0 {
-                return None;
+        let mut best_child = &OthelloPosition::worst_for_min();
+        let mut to_beat = VERY_HIGH;
+        if children.len() == 0 {
+            return None;
+        }
+        for child in &children {
+            let child_value = alphabeta(
+                child,
+                depth_limit,
+                VERY_LOW,
+                VERY_HIGH,
+                start_time,
+                time_limit,
+            );
+            if child_value <= to_beat {
+                to_beat = child_value;
+                best_child = child;
             }
-            for child in &children {
-                let thread = s.spawn(move |_| alphabeta(child, depth_limit, VERY_LOW, VERY_HIGH));
-                let child_value = thread.join().unwrap();
-         //       let child_value = alphabeta(child, depth_limit, VERY_LOW, VERY_HIGH);
-                if child_value <= to_beat {
-                    to_beat = child_value;
-                    best_child = child;
-                }
-            }
-            // println!("Best value found for black is: {}", evaluate_board(best_child));
-            get_move_from_board_diff(board, &best_child)
-        })
-        .unwrap()
+        }
+        get_move_from_board_diff(board, &best_child)
     }
 }
 
-pub fn alphabeta(board: &OthelloPosition, depth: u32, mut alpha: isize, mut beta: isize) -> isize {
-
-    if depth == 0 || is_game_over(board) {
+pub fn alphabeta(
+    board: &OthelloPosition,
+    depth: u32,
+    mut alpha: isize,
+    mut beta: isize,
+    start_time: Instant,
+    time_limit: u64,
+) -> isize {
+    if depth == 0
+        || is_game_over(board)
+        || Instant::now().duration_since(start_time) > Duration::new(time_limit, 0)
+    {
         let value = evaluate_board(board);
         return value;
     }
@@ -426,7 +585,7 @@ pub fn alphabeta(board: &OthelloPosition, depth: u32, mut alpha: isize, mut beta
         // println!("WHITE ALPHABETA");
         let mut value = VERY_LOW;
         for child in generate_children(board) {
-            let child_value = alphabeta(&child, depth - 1, alpha, beta);
+            let child_value = alphabeta(&child, depth - 1, alpha, beta, start_time, time_limit);
             if child_value >= value {
                 value = child_value;
             }
@@ -443,7 +602,7 @@ pub fn alphabeta(board: &OthelloPosition, depth: u32, mut alpha: isize, mut beta
         // println!("BLACK ALPHABETA");
         let mut value = VERY_HIGH;
         for child in generate_children(board) {
-            let child_value = alphabeta(&child, depth - 1, alpha, beta);
+            let child_value = alphabeta(&child, depth - 1, alpha, beta, start_time, time_limit);
             if child_value <= value {
                 value = child_value;
             }

@@ -3,25 +3,12 @@ mod move_generator;
 use alphabeta::alphabeta_at_root;
 
 use crate::alphabeta::{VERY_HIGH, VERY_LOW, alphabeta_move_gen, evaluate_board, generate_children};
-use crate::move_generator::{get_move_from_board_diff, get_moves, Move, OthelloPosition};
+use crate::move_generator::{Move, OthelloPosition, PLAYER_BLACK, get_move_from_board_diff, get_moves};
 use std::env;
 use std::thread;
 use std::time;
 
-// TODO: Find out if this is okay, does allow 100000 nodes to be explored
-// const STACK_SIZE: usize = 32 * 1024 * 1024;
 
-/*
-fn main() {
-    let child = thread::Builder::new()
-        .stack_size(STACK_SIZE)
-        .spawn(run)
-        .unwrap();
-
-    child.join().unwrap();
-}*/
-// TODO: Same moves are always made, even with different evaluation functions
-// TODO: Look over the alpha-beta algorithm step by step, read Anton's comment in the discussion about passing a copy etc.
 fn main() {
 
    /*  let worst_white = move_generator::OthelloPosition::worst_for_max();
