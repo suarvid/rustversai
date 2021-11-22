@@ -36,10 +36,6 @@ pub fn alphabeta_move_gen(
             children.sort_by(|a, b| a.score.cmp(&b.score)); // Ascending
         }
     }
-    println!("Highest depth limit reached was: {}", depth_limit);
-    unsafe {
-        println!("Calls to alphabeta: {}", NODES_EXPANDED);
-    }
 
     best_move
 }
@@ -141,7 +137,7 @@ pub fn alphabeta(
                 value = child_value;
             }
             if value >= beta {
-                continue;
+                break;
             }
             if value >= alpha {
                 alpha = value;
@@ -157,7 +153,7 @@ pub fn alphabeta(
                 value = child_value;
             }
             if value <= alpha {
-                continue;
+                break;
             }
             if value <= beta {
                 beta = value;
