@@ -1,9 +1,11 @@
 use crate::move_generator::{get_move_from_board_diff, get_moves, Move, OthelloPosition};
 use crate::move_generator::{EMPTY_CELL, PLAYER_BLACK, PLAYER_WHITE};
+use std::collections::HashMap;
 use std::time::{Duration, Instant};
 extern crate crossbeam;
 pub const VERY_HIGH: isize = 9999999999999;
 pub const VERY_LOW: isize = -VERY_HIGH;
+static mut NODES_EXPANDED: usize = 0;
 
 // TODO: figure out if this should allow negative values
 // It should probably return values in the range (-100, 100) for example
@@ -18,18 +20,19 @@ pub const VERY_LOW: isize = -VERY_HIGH;
 //      These squares are [2][2] [2][7] [7][2] and [7][7]
 
 pub fn evaluate_board(board: &OthelloPosition) -> isize {
-    if is_win_black(board) {
+    // These two might get us into trouble
+    /* if is_win_black(board) {
         return VERY_LOW;
     }
     if is_win_white(board) {
         return VERY_HIGH;
-    }
+    } */
 
-    (-50 * coin_parity_value(board))
-        + (1500 * corners_value(board))
+    (-100 * coin_parity_value(board))
+        + (4000 * corners_value(board))
         + (400 * immediate_mobility(board))
         + (600 * potential_mobility(board))
-        + (10 * giving_away_corners(board)) //TODO: Maybe remove this one, or elaborate upon it so that it only counts if we don't have the corner
+        + (400 * giving_away_corners(board)) //TODO: Maybe remove this one, or elaborate upon it so that it only counts if we don't have the corner
 }
 
 pub fn is_win_black(board: &OthelloPosition) -> bool {
@@ -403,6 +406,7 @@ fn immediate_mobility(board: &OthelloPosition) -> isize {
         let min_board = OthelloPosition {
             board: board.board, //TODO: Maybe we need clone here?
             max_player: false,
+            score: 0,
         }; //Cloning might be a bit expensive
         let max_board = board;
         num_max_moves = get_moves(max_board).len() as isize;
@@ -412,6 +416,7 @@ fn immediate_mobility(board: &OthelloPosition) -> isize {
         let max_board = OthelloPosition {
             board: board.board, //TODO: Maybe need clone here
             max_player: true,
+            score: 0,
         };
         let min_board = board;
         num_max_moves = get_moves(&max_board).len() as isize;
@@ -489,21 +494,43 @@ pub fn is_game_over(board: &OthelloPosition) -> bool {
     true
 }
 
+// TODO: Implement move-reordering so that pruning is maximized
+// If the nodes are ordered from best to worst, maximum pruning is achieved (I think?)
 pub fn alphabeta_move_gen(
     board: &OthelloPosition,
     start_time: Instant,
     time_limit: u64,
 ) -> Option<Move> {
-    let max_depth = 110;
+    let max_depth = 100000000; //TODO: Might actually win more often if we limit this to 7 lol
     let mut depth_limit = 1;
     let mut best_move = None;
+    let mut children = generate_children(board);
+    let mut value_map = HashMap::new();
     while depth_limit <= max_depth
         && Instant::now().duration_since(start_time) < Duration::new(time_limit, 0)
     {
-        best_move = alphabeta_at_root(board, depth_limit, start_time, time_limit);
+        best_move = alphabeta_at_root(
+            board,
+            &mut children,
+            depth_limit,
+            start_time,
+            time_limit,
+            &mut value_map,
+        );
         depth_limit += 1;
+        //TODO: Maybe we can do the move reordering here?
+        // White won w 41 points
+         if board.max_player {
+            children.sort_by(|a, b| b.score.cmp(&a.score)); // Descending
+        } else {
+            children.sort_by(|a, b| a.score.cmp(&b.score)); // Ascending
+        }
     }
-    // println!("Highest depth limit reached was: {}", depth_limit);
+    /* println!("Highest depth limit reached was: {}", depth_limit);
+    unsafe {
+        println!("Calls to alphabeta: {}", NODES_EXPANDED);
+    } */
+
     best_move
 }
 
@@ -512,34 +539,43 @@ pub fn alphabeta_move_gen(
 // Though that might be because the other player gets to move first when considering child nodes (sort of)
 pub fn alphabeta_at_root(
     board: &OthelloPosition,
+    children: &mut Vec<OthelloPosition>,
     depth_limit: u32,
     start_time: Instant,
     time_limit: u64,
+    value_map: &mut HashMap<String, isize>,
 ) -> Option<Move> {
     // max wants child with max value,
     // min wants child with min value
-    let children = generate_children(board);
+    //let children = generate_children(board);
     if board.max_player {
         let mut best_child = &OthelloPosition::worst_for_max(); //this should be replaced by any child
         let mut to_beat = VERY_LOW; // basically negative infinity as an integer
         if children.len() == 0 {
             return None;
         }
-        for child in &children {
-            let child_value = alphabeta(
-                child,
-                depth_limit,
-                VERY_LOW,
-                VERY_HIGH,
-                start_time,
-                time_limit,
-            );
+        for child in children {
+            let child_value: isize;
+            match value_map.get(&child.string_rep()) {
+                Some(value) => child_value = *value,
+                None => {
+                    child_value = alphabeta(
+                        child,
+                        depth_limit,
+                        VERY_LOW,
+                        VERY_HIGH,
+                        start_time,
+                        time_limit,
+                    );
+                    value_map.insert(child.string_rep(), child_value);
+                }
+            }
+            child.score = child_value;
             if child_value >= to_beat {
                 to_beat = child_value;
                 best_child = child;
             }
         }
-
         get_move_from_board_diff(board, &best_child)
     } else {
         let mut best_child = &OthelloPosition::worst_for_min();
@@ -547,15 +583,23 @@ pub fn alphabeta_at_root(
         if children.len() == 0 {
             return None;
         }
-        for child in &children {
-            let child_value = alphabeta(
-                child,
-                depth_limit,
-                VERY_LOW,
-                VERY_HIGH,
-                start_time,
-                time_limit,
-            );
+        for child in children {
+            let child_value: isize;
+            match value_map.get(&child.string_rep()) {
+                Some(value) => child_value = *value,
+                None => {
+                    child_value = alphabeta(
+                        child,
+                        depth_limit,
+                        VERY_LOW,
+                        VERY_HIGH,
+                        start_time,
+                        time_limit,
+                    );
+                    value_map.insert(child.string_rep(), child_value);
+                }
+            }
+            child.score = child_value;
             if child_value <= to_beat {
                 to_beat = child_value;
                 best_child = child;
@@ -573,6 +617,9 @@ pub fn alphabeta(
     start_time: Instant,
     time_limit: u64,
 ) -> isize {
+    /* unsafe {
+        NODES_EXPANDED += 1;
+    } */
     if depth == 0
         || is_game_over(board)
         || Instant::now().duration_since(start_time) > Duration::new(time_limit, 0)
@@ -584,8 +631,9 @@ pub fn alphabeta(
     if board.max_player {
         // println!("WHITE ALPHABETA");
         let mut value = VERY_LOW;
-        for child in generate_children(board) {
+        for mut child in generate_children(board) {
             let child_value = alphabeta(&child, depth - 1, alpha, beta, start_time, time_limit);
+            child.score = child_value;
             if child_value >= value {
                 value = child_value;
             }
@@ -601,8 +649,9 @@ pub fn alphabeta(
         // For every call to white alpha beta, there seems to be 3-4 calls to black alpha beta
         // println!("BLACK ALPHABETA");
         let mut value = VERY_HIGH;
-        for child in generate_children(board) {
+        for mut child in generate_children(board) {
             let child_value = alphabeta(&child, depth - 1, alpha, beta, start_time, time_limit);
+            child.score = child_value;
             if child_value <= value {
                 value = child_value;
             }

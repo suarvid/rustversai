@@ -13,10 +13,11 @@ pub struct Move {
     pub col: usize,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub struct OthelloPosition {
     pub board: [[char; 10]; 10],
     pub max_player: bool,
+    pub score: isize
 }
 
 impl OthelloPosition {
@@ -26,6 +27,7 @@ impl OthelloPosition {
         OthelloPosition {
             board,
             max_player: true,
+            score: 0,
         }
     }
 
@@ -34,6 +36,7 @@ impl OthelloPosition {
         OthelloPosition {
             board,
             max_player: true,
+            score: 0,
         }
     }
 
@@ -42,6 +45,7 @@ impl OthelloPosition {
         OthelloPosition {
             board,
             max_player: false,
+            score: 0,
         }
     }
 
@@ -122,7 +126,7 @@ impl OthelloPosition {
                 let row = (i - 1) / 8 + 1;
                 board[row][col] = c;
             }
-            OthelloPosition { board, max_player }
+            OthelloPosition { board, max_player, score: 0 }
         }
     }
 
@@ -146,6 +150,7 @@ impl OthelloPosition {
         let mut new_position = OthelloPosition {
             board: self.board.clone(),
             max_player: !self.max_player,
+            score: 0 //TODO: this might cause issues
         };
         new_position.board[row][col] = player;
         new_position

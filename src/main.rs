@@ -8,7 +8,7 @@ use std::env;
 use std::thread;
 use std::time;
 
-
+// Starting string is: WEEEEEEEEEEEEEEEEEEEEEEEEEEEOXEEEEEEXOEEEEEEEEEEEEEEEEEEEEEEEEEEE
 fn main() {
 
    /*  let worst_white = move_generator::OthelloPosition::worst_for_max();
