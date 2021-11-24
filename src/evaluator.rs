@@ -1,7 +1,17 @@
+/// This file contains the implementation of the struct Evaluator
+/// and its associated functions. These are used for evaluating boards,
+/// where negative values represent situations beneficial for the min player
+/// and positive values represent situations beneficial for the max player.
+/// A value of zero means the advantages of the players is in balance.
+
 use crate::board::{OthelloPosition, EMPTY_CELL, PLAYER_BLACK, PLAYER_WHITE};
 use crate::move_generator;
+
+/// Represents an Evaluator with its associated weights.
+/// Each weight determines how much each aspect taken into
+/// consideration should affect the evaluated value of a given board.
 pub struct Evaluator {
-    pub parity_weight: isize,
+    pub count_weight: isize,
     pub corners_weight: isize,
     pub imm_mobility_weight: isize,
     pub pot_mobility_weight: isize,
@@ -9,9 +19,11 @@ pub struct Evaluator {
 }
 
 impl Evaluator {
+    /// Returns a new evaluator with weights deemed to
+    /// lead to good performance, at least by experimentation.
     pub fn default() -> Evaluator {
         Evaluator {
-            parity_weight: -100,
+            count_weight: -100,
             corners_weight: 4000,
             imm_mobility_weight: 400,
             pot_mobility_weight: 600,
@@ -19,15 +31,29 @@ impl Evaluator {
         }
     }
 
+    /// Evaluates a given board. Returns an integer representing
+    /// which player is deemed to have the advantage and the
+    /// magnitude of that advantage.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `board` - An OthelloPosition representing the board to be evaluated.
     pub fn evaluate(&self, board: &OthelloPosition) -> isize {
-        self.parity_weight * Evaluator::coin_parity_value(board)
+        self.count_weight * Evaluator::piece_count_value(board)
             + self.corners_weight * Evaluator::corners_value(board)
             + self.imm_mobility_weight * Evaluator::immediate_mobility(board)
             + self.pot_mobility_weight * Evaluator::potential_mobility(board)
             + self.corner_adjacent_weight * Evaluator::giving_away_corners(board)
     }
 
-    fn coin_parity_value(board: &OthelloPosition) -> isize {
+    /// Counts the number of pieces belonging to each player.
+    /// Returns a normalized value representing the difference in
+    /// piece count.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `board` - An OthelloPosition representing the board.
+    fn piece_count_value(board: &OthelloPosition) -> isize {
         let mut max_player_coins = 0;
         let mut min_player_coins = 0;
         for elem in &board.board {
@@ -43,6 +69,16 @@ impl Evaluator {
         100 * (max_player_coins - min_player_coins) / (max_player_coins + min_player_coins)
     }
 
+    /// Counts the occurrences of pieces belonging to each player
+    /// in the squares immediately adjacent to a corner.
+    /// Returns a negative value if the max player has more pieces in
+    /// these squares, a positive value if the min player has more.
+    /// Returns a value of 0 if no such squares are taken or if each player
+    /// holds the same amount of these squares.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `board` - An OthelloPosition representing the board
     fn giving_away_corners(board: &OthelloPosition) -> isize {
         let mut white_value = 0;
         let mut black_value = 0;
@@ -113,8 +149,12 @@ impl Evaluator {
         0
     }
 
-    // This is a behemoth of a function
-    // TODO: Extract this into smaller functions
+    /// Counts the number of empty squares next to each piece belonging
+    /// to either player.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `board` - An OthelloPosition representing the board.
     fn potential_mobility(board: &OthelloPosition) -> isize {
         let mut white_count = 0;
         let mut black_count = 0;
@@ -368,6 +408,13 @@ impl Evaluator {
         }
         0
     }
+
+    /// Counts the number of moves available to each player if it were their
+    /// turn with the given pieces on the board.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `board` - An OthelloPosition representing the board.
     fn immediate_mobility(board: &OthelloPosition) -> isize {
         let num_max_moves;
         let num_min_moves;
@@ -399,6 +446,15 @@ impl Evaluator {
         0
     }
 
+
+    /// Counts the number of corners held by each player.
+    /// Returns a negative value if the min player holds more corners,
+    /// a positive value if the max player holds more corners.
+    /// If no corners are held, a value of 0 is returned.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `board` - An OthelloPosition representing the board.
     fn corners_value(board: &OthelloPosition) -> isize {
         let mut max_corners = 0;
         let mut min_corners = 0;

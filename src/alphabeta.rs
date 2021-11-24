@@ -1,3 +1,8 @@
+/// This file implements the logic for generating a recommended
+/// move, given a specific board. The algorithm used to do so is
+/// minimax with alpha-beta pruning. Additionally, an attempt at
+/// basic move-ordering is made along with the utilization of a
+/// HashMap for storing board values.
 use crate::board::OthelloPosition;
 use crate::evaluator::Evaluator;
 use crate::move_generator::{get_move_from_board_diff, Move};
@@ -6,8 +11,19 @@ use std::time::{Duration, Instant};
 extern crate crossbeam;
 pub const VERY_HIGH: isize = 9999999999999;
 pub const VERY_LOW: isize = -VERY_HIGH;
-static mut NODES_EXPANDED: usize = 0;
 
+
+/// Utilisies iterative deepening search in order to
+/// inspect and evaluate the potential boards that can
+/// be reached from the given board. Keeps searching until
+/// either a set depth-limit is reached or the parsed time
+/// limit is reached.
+/// 
+/// # Arguments
+/// 
+/// * `board` - The starting board used as the root of the search tree.
+/// * `start_time` - The Instant represeting the start of program execution.
+/// * `time_limit` - An integer representing the set time limit in secodns.
 pub fn alphabeta_move_gen(
     board: &OthelloPosition,
     start_time: Instant,
@@ -40,6 +56,21 @@ pub fn alphabeta_move_gen(
     best_move
 }
 
+
+/// Iterates over the children of the board representing
+/// the root of the search tree used to find the best move.
+/// From the best child, get_move_from_board_diff is called
+/// in order to generate the recommended move.
+/// 
+/// # Arguments
+/// 
+/// * `board` - An OthelloPosition representing the board to start the search from.
+/// * `children` - The children of the starting board. Passed to reduce computation.
+/// * `depth_limit` - The maximum depth to search to.
+/// * `start_time` - An Instant representing the time the program execution started.
+/// * `time_limit` - An integer representing the maximum allowed search time in seconds.
+/// * `value_map` - A HashMap containing String representations of boards and the evaluated values of the corresponding board.
+/// 
 pub fn alphabeta_at_root(
     board: &OthelloPosition,
     children: &mut Vec<OthelloPosition>,
@@ -48,12 +79,12 @@ pub fn alphabeta_at_root(
     time_limit: u64,
     value_map: &mut HashMap<String, isize>,
 ) -> Option<Move> {
+    if children.len() == 0 {
+        return None;
+    }
     if board.max_player {
         let mut best_child = &OthelloPosition::worst_for_max(); //this should be replaced by any child
         let mut to_beat = VERY_LOW; // basically negative infinity as an integer
-        if children.len() == 0 {
-            return None;
-        }
         for child in children {
             let child_value: isize;
             match value_map.get(&child.string_rep()) {
@@ -80,9 +111,6 @@ pub fn alphabeta_at_root(
     } else {
         let mut best_child = &OthelloPosition::worst_for_min();
         let mut to_beat = VERY_HIGH;
-        if children.len() == 0 {
-            return None;
-        }
         for child in children {
             let child_value: isize;
             match value_map.get(&child.string_rep()) {
@@ -109,6 +137,18 @@ pub fn alphabeta_at_root(
     }
 }
 
+/// The actual minimax algorithm with alpha-beta pruning.
+/// Evaluates the given board if the depth limit is reached, no moves are possible,
+/// or if the time limit is reached.
+/// 
+/// # Arguments
+/// 
+/// * `board` - An OthelloPosition instance representing the board to be evaluated.
+/// * `depth` - An integer representing the depth remaining until the search depth, decreases with each call.
+/// * `alpha` - An integer representing the alpha parameter used for pruning.
+/// * `beta` - An integer representing the beta parameter used for pruning.
+/// * `start_time` - An Instant representing the time of program execution start.
+/// * `time_limit` - An integer representing the maximum allowed search time in seconds.
 pub fn alphabeta(
     board: &OthelloPosition,
     depth: u32,
@@ -117,9 +157,7 @@ pub fn alphabeta(
     start_time: Instant,
     time_limit: u64,
 ) -> isize {
-    unsafe {
-        NODES_EXPANDED += 1;
-    }
+    
     if depth == 0
         || board.is_game_over()
         || Instant::now().duration_since(start_time) > Duration::new(time_limit, 0)
@@ -139,7 +177,7 @@ pub fn alphabeta(
             if value >= beta {
                 break;
             }
-            if value >= alpha {
+            if value > alpha {
                 alpha = value;
             }
         }
@@ -155,7 +193,7 @@ pub fn alphabeta(
             if value <= alpha {
                 break;
             }
-            if value <= beta {
+            if value < beta {
                 beta = value;
             }
         }

@@ -1,22 +1,50 @@
 use crate::board::{OthelloPosition, BOARD_SIZE, EMPTY_CELL, PLAYER_BLACK, PLAYER_WHITE};
 
 #[derive(Debug, Clone, PartialEq)]
+/// This file contains the implementation logic of a Move.
+/// Additionally, it contains a rewrite of the move generation code
+/// in the file OthelloPosition.java, given in the assignment.
+/// It should therefore be noted that I should probably not be credited
+/// as the author of the implementation of the logic in get_moves and the 
+/// functions it relies on, although these have been slightly improved
+/// from the given versions.
+
+/// A representation of a Move.
 pub struct Move {
+    /// A char representing the colour of the player to add a piece.
     player: char,
+    /// The row where the piece should be added.
     pub row: usize,
+    /// The column where the piece should be added.
     pub col: usize,
 }
 
 impl Move {
+    /// Returns a new instance of Move with the given player, row, and column.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `player` - a char representation of the colour of the player to add a piece.
+    /// * `row` - the row where the piece should be added.
+    /// * `col` - the column where the piece should be added.
     pub fn new(player: char, row: usize, col: usize) -> Move {
         Move { player, row, col }
     }
 
+    /// Takes a board and a move, adds the piece to the given board in the specified
+    /// location and returns the resulting board as an OthelloPosition.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `board` - The board to add a piece to.
+    /// * `to_make` - A Move to be carried out on the given board.
     pub fn make_move<'a>(board: &OthelloPosition, to_make: &Move) -> OthelloPosition {
-        board.add_piece(to_make.row + 1, to_make.col + 1, to_make.player) //TODO: Might have to remove the +1's
+        board.add_piece(to_make.row + 1, to_make.col + 1, to_make.player)
     }
 }
 
+/// This function and the function it utilizies are heavily based on their
+/// Java-based implementation given in the assignment files.
 pub fn get_moves(board: &OthelloPosition) -> std::vec::Vec<Move> {
     let mut val_moves = Vec::new();
     let mut candidates = [[false; BOARD_SIZE + 2]; BOARD_SIZE + 2];

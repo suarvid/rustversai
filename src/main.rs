@@ -8,9 +8,7 @@ use crate::board::OthelloPosition;
 use std::env;
 use std::time;
 
-// Starting string is: WEEEEEEEEEEEEEEEEEEEEEEEEEEEOXEEEEEEXOEEEEEEEEEEEEEEEEEEEEEEEEEEE
 fn main() {
-    
 
     let args: Vec<String> = env::args().collect();
     let start_time = time::Instant::now();
